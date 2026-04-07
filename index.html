@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PepsiCo × NIM Express — Logistics Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     CSS VARIABLES — แก้ไขสีธีมได้ที่นี่
+  ============================================================ */
+  :root {
+    --bg-primary: #FFFFFF;
+    --bg-secondary: #F4F6FA;
+    --bg-card: #FFFFFF;
+    --sidebar-bg: #003087;
+    --sidebar-hover: #00428F;
+    --sidebar-active: #0066CC;
+    --text-primary: #1A1F36;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --border: #E5E9F0;
+    --shadow: 0 2px 12px rgba(0,48,135,0.08);
+    --pepsi-blue: #004B93;
+    --pepsi-red: #E31837;
+    --lays-yellow: #F7C300;
+    --nim-red: #D72027;
+    --green-ok: #16A34A;
+    --accent-teal: #0EA5E9;
+  }
+  [data-theme="dark"] {
+    --bg-primary: #0F1523;
+    --bg-secondary: #161E2E;
+    --bg-card: #1C2537;
+    --sidebar-bg: #0A0F1E;
+    --sidebar-hover: #1C2537;
+    --sidebar-active: #1D4ED8;
+    --text-primary: #F0F4FF;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --border: #1E293B;
+    --shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* ============================================================
+     SIDEBAR
+  ============================================================ */
+  #sidebar {
+    width: 240px;
+    min-width: 240px;
+    background: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s ease, min-width 0.25s ease;
+    z-index: 100;
+    overflow: hidden;
+  }
+  #sidebar.collapsed { width: 64px; min-width: 64px; }
+  #sidebar.collapsed .nav-label,
+  #sidebar.collapsed .logo-nim span,
+  #sidebar.collapsed .logo-pepsi-text,
+  #sidebar.collapsed .logo-divider { display: none; }
+  #sidebar.collapsed .logo-nim { font-size: 13px; }
+  #sidebar.collapsed .logo-area { align-items: center; padding: 12px 0; }
+
+  .logo-area {
+    padding: 18px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .logo-row { display: flex; align-items: center; gap: 8px; }
+  .logo-nim {
+    font-size: 17px; font-weight: 700; letter-spacing: 0.5px;
+    color: #F7C300; line-height: 1;
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+  }
+  .logo-nim span { color: rgba(255,255,255,0.85); font-weight: 400; font-size: 13px; }
+  .logo-pepsi-text {
+    font-size: 14px; font-weight: 700; letter-spacing: 1px;
+    color: rgba(255,255,255,0.9); line-height: 1;
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    text-transform: uppercase;
+  }
+  .logo-divider {
+    display: flex; align-items: center; gap: 6px;
+    color: rgba(255,255,255,0.3); font-size: 10px; letter-spacing: 1px;
+  }
+  .logo-divider::before, .logo-divider::after {
+    content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.15);
+  }
+  .logo-text {
+    font-size: 10px; color: rgba(255,255,255,0.4);
+    letter-spacing: 0.5px; padding: 0 2px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .nav-section { padding: 12px 10px 4px; }
+  .nav-section-label {
+    font-size: 9px; font-weight: 600; letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.3); text-transform: uppercase; padding: 0 8px 6px;
+  }
+  #sidebar.collapsed .nav-section-label { display: none; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    color: rgba(255,255,255,0.6); transition: all 0.18s;
+    margin: 1px 0; white-space: nowrap;
+  }
+  .nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+  .nav-item.active {
+    background: rgba(255,255,255,0.12); color: #fff;
+    box-shadow: inset 3px 0 0 #F7C300;
+  }
+  .nav-icon { font-size: 16px; min-width: 20px; text-align: center; }
+  .nav-label { font-size: 13px; font-weight: 500; }
+  #sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 10px;
+  }
+
+  /* ============================================================
+     MAIN CONTENT
+  ============================================================ */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-secondary);
+  }
+
+  /* TOPBAR */
+  #topbar {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow);
+    flex-shrink: 0;
+  }
+  #topbar h1 {
+    font-size: 16px; font-weight: 600; color: var(--text-primary);
+    flex: 1;
+  }
+  .topbar-badge {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .btn-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    cursor: pointer; font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); transition: all 0.18s;
+  }
+  .btn-icon:hover { background: var(--pepsi-blue); color: white; border-color: var(--pepsi-blue); }
+
+  /* FILTER BAR */
+  #filterbar {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .filter-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .filter-select, .filter-input {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.18s;
+  }
+  .filter-select:focus, .filter-input:focus { border-color: var(--pepsi-blue); }
+  .filter-divider { width: 1px; height: 24px; background: var(--border); }
+  .filter-chip {
+    font-size: 11px; font-weight: 600; padding: 4px 10px;
+    border-radius: 20px; border: none; cursor: pointer;
+    transition: all 0.18s;
+  }
+  .chip-inbound { background: #FEF9C3; color: #854D0E; }
+  .chip-inbound.active { background: var(--lays-yellow); color: #713F12; }
+  .chip-sto { background: #DBEAFE; color: #1E40AF; }
+  .chip-sto.active { background: #3B82F6; color: white; }
+  .chip-so { background: #FEE2E2; color: #991B1B; }
+  .chip-so.active { background: var(--nim-red); color: white; }
+
+  /* CONTENT AREA */
+  #content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* CARDS */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.18s, box-shadow 0.18s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,48,135,0.12); }
+  .kpi-card::before {
+    content: ""; position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+  }
+  .kpi-card.blue::before { background: var(--pepsi-blue); }
+  .kpi-card.yellow::before { background: var(--lays-yellow); }
+  .kpi-card.red::before { background: var(--nim-red); }
+  .kpi-card.green::before { background: var(--green-ok); }
+  .kpi-card.teal::before { background: var(--accent-teal); }
+  .kpi-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; letter-spacing: 0.3px; margin-bottom: 6px; }
+  .kpi-value { font-size: 26px; font-weight: 700; color: var(--text-primary); font-family: 'IBM Plex Mono', monospace; line-height: 1; }
+  .kpi-unit { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .kpi-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 20px; margin-top: 6px;
+  }
+  .kpi-badge.up { background: #DCFCE7; color: #15803D; }
+  .kpi-badge.down { background: #FEE2E2; color: #B91C1C; }
+  .kpi-badge.neutral { background: var(--bg-secondary); color: var(--text-secondary); }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .chart-grid.full { grid-template-columns: 1fr; }
+  .chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .chart-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .chart-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .chart-subtitle { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .chart-tag {
+    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .tag-inbound { background: #FEF9C3; color: #854D0E; }
+  .tag-sto { background: #DBEAFE; color: #1E40AF; }
+  .tag-so { background: #FEE2E2; color: #991B1B; }
+  .tag-stock { background: #D1FAE5; color: #065F46; }
+  .tag-prod { background: #EDE9FE; color: #5B21B6; }
+  canvas { max-height: 260px; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-size: 12px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--text-secondary);
+    margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th {
+    background: var(--bg-secondary); color: var(--text-secondary);
+    padding: 8px 10px; text-align: left; font-weight: 600;
+    border-bottom: 1px solid var(--border); letter-spacing: 0.3px;
+    font-size: 11px; text-transform: uppercase;
+  }
+  .data-table td {
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    color: var(--text-primary); font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+  .data-table tr:hover td { background: var(--bg-secondary); }
+  .pct-bar {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .pct-track {
+    flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;
+  }
+  .pct-fill { height: 100%; border-radius: 3px; background: var(--pepsi-blue); }
+
+  /* IMPORT CSV SECTION */
+  .import-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    cursor: pointer;
+    transition: all 0.18s;
+    margin-bottom: 20px;
+  }
+  .import-zone:hover { border-color: var(--pepsi-blue); color: var(--pepsi-blue); }
+  .import-zone .icon { font-size: 28px; margin-bottom: 8px; }
+  .import-zone p { font-size: 13px; }
+  .import-zone small { font-size: 11px; color: var(--text-muted); }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    #sidebar { width: 64px; min-width: 64px; }
+    #sidebar .nav-label, #sidebar .logo-text,
+    #sidebar .logo-divider, #sidebar .nav-section-label { display: none; }
+    #sidebar .logo-area { justify-content: center; padding: 12px 0; }
+    #sidebar .nav-item { justify-content: center; padding: 10px 0; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    #content { padding: 14px 12px; }
+    #topbar { padding: 0 12px; }
+    #filterbar { padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SIDEBAR NAVIGATION
+============================================================ -->
+<aside id="sidebar">
+  <div class="logo-area">
+    <div class="logo-row">
+      <div class="logo-nim">NIM Express <span>Logistics</span></div>
+    </div>
+    <div class="logo-divider">×</div>
+    <div class="logo-row">
+      <div class="logo-pepsi-text">PepsiCo</div>
+    </div>
+
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Overview</div>
+    <div class="nav-item active" onclick="switchView('homepage', this)">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Homepage</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Operations</div>
+    <div class="nav-item" onclick="switchView('inbound', this)">
+      <span class="nav-icon">📦</span>
+      <span class="nav-label">Inbound Ops</span>
+    </div>
+    <div class="nav-item" onclick="switchView('sto', this)">
+      <span class="nav-icon">🚚</span>
+      <span class="nav-label">Outbound STO</span>
+    </div>
+    <div class="nav-item" onclick="switchView('so', this)">
+      <span class="nav-icon">🛒</span>
+      <span class="nav-label">Outbound SO</span>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Warehouse</div>
+    <div class="nav-item" onclick="switchView('stock', this)">
+      <span class="nav-icon">🏭</span>
+      <span class="nav-label">Stock Control</span>
+    </div>
+    <div class="nav-item" onclick="switchView('productivity', this)">
+      <span class="nav-icon">⚡</span>
+      <span class="nav-label">Productivity</span>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="nav-item" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">
+      <span class="nav-icon">◀</span>
+      <span class="nav-label">Collapse</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ============================================================
+     MAIN AREA
+============================================================ -->
+<div id="main">
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <h1 id="topbar-title">📊 Dashboard Overview</h1>
+    <span class="topbar-badge" id="date-badge">Apr 2026</span>
+    <div class="btn-icon" onclick="toggleTheme()" title="Toggle Dark Mode">🌙</div>
+    <div class="btn-icon" onclick="document.getElementById('import-modal').style.display='flex'" title="Import CSV">📂</div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div id="filterbar">
+    <span class="filter-label">เดือน:</span>
+    <select class="filter-select" id="month-filter" onchange="applyFilters()">
+      <option value="2026-04">เมษายน 2026</option>
+      <option value="2026-03">มีนาคม 2026</option>
+      <option value="2026-02">กุมภาพันธ์ 2026</option>
+    </select>
+    <div class="filter-divider"></div>
+    <span class="filter-label">วันที่:</span>
+    <input type="date" class="filter-input" id="date-from" value="2026-04-01" onchange="applyFilters()">
+    <span class="filter-label">—</span>
+    <input type="date" class="filter-input" id="date-to" value="2026-04-30" onchange="applyFilters()">
+    <div class="filter-divider"></div>
+    <span class="filter-label">แสดง:</span>
+    <button class="filter-chip chip-inbound active" onclick="toggleChip(this)">Inbound</button>
+    <button class="filter-chip chip-sto active" onclick="toggleChip(this)">STO</button>
+    <button class="filter-chip chip-so active" onclick="toggleChip(this)">SO</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ============================================================
+         VIEW: HOMEPAGE
+    ============================================================ -->
+    <div class="view active" id="view-homepage">
+      <div class="section-title">KPI Summary — April 2026</div>
+      <div class="kpi-grid">
+        <div class="kpi-card yellow">
+          <div class="kpi-label">Total Inbound Received</div>
+          <div class="kpi-value" id="kpi-inbound-total">-</div>
+          <div class="kpi-unit">Cases</div>
+          <div class="kpi-badge neutral" id="kpi-inbound-ach">—</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Total STO Dispatched</div>
+          <div class="kpi-value" id="kpi-sto-total">-</div>
+          <div class="kpi-unit">Cases</div>
+          <div class="kpi-badge neutral" id="kpi-sto-ach">—</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Total SO Dispatched</div>
+          <div class="kpi-value" id="kpi-so-total">-</div>
+          <div class="kpi-unit">Cases</div>
+          <div class="kpi-badge neutral" id="kpi-so-ach">—</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Avg Stock Inventory</div>
+          <div class="kpi-value" id="kpi-stock-avg">-</div>
+          <div class="kpi-unit">Cases (K)</div>
+          <div class="kpi-badge neutral" id="kpi-stock-pct">—</div>
+        </div>
+        <div class="kpi-card teal">
+          <div class="kpi-label">Pallet Occupancy</div>
+          <div class="kpi-value" id="kpi-pallet">-</div>
+          <div class="kpi-unit">Active / Total Bins</div>
+          <div class="kpi-badge neutral" id="kpi-pallet-pct">—</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Productivity Inbound</div>
+          <div class="kpi-value" id="kpi-prod-ib">-</div>
+          <div class="kpi-unit">Cases/MH avg</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Productivity STO</div>
+          <div class="kpi-value" id="kpi-prod-sto">-</div>
+          <div class="kpi-unit">Cases/MH avg</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Productivity SO</div>
+          <div class="kpi-value" id="kpi-prod-so">-</div>
+          <div class="kpi-unit">Cases/MH avg</div>
+        </div>
+      </div>
+
+      <div class="section-title">Operation Trend — Daily</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Inbound — Plan vs Actual</div>
+              <div class="chart-subtitle">รับสินค้าเข้าคลัง (Cases)</div>
+            </div>
+            <span class="chart-tag tag-inbound">Inbound</span>
+          </div>
+          <canvas id="chart-home-inbound"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Outbound STO + SO — Combined</div>
+              <div class="chart-subtitle">จ่ายสินค้าออก (Cases)</div>
+            </div>
+            <span class="chart-tag tag-sto">Outbound</span>
+          </div>
+          <canvas id="chart-home-outbound"></canvas>
+        </div>
+      </div>
+
+      <div class="section-title">Daily Data Table</div>
+      <div class="chart-card">
+        <div style="overflow-x:auto">
+          <table class="data-table" id="home-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Plan Inbound</th>
+                <th>Act. Inbound</th>
+                <th>Plan STO</th>
+                <th>Act. STO</th>
+                <th>Plan SO</th>
+                <th>Act. SO</th>
+                <th>Stock (K)</th>
+                <th>Pallet %</th>
+              </tr>
+            </thead>
+            <tbody id="home-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         VIEW: INBOUND
+    ============================================================ -->
+    <div class="view" id="view-inbound">
+      <div class="section-title">Inbound Operations — รับสินค้าเข้าคลัง</div>
+      <div class="kpi-grid">
+        <div class="kpi-card yellow">
+          <div class="kpi-label">Total Received</div>
+          <div class="kpi-value" id="ib-kpi-total">-</div>
+          <div class="kpi-unit">Cases</div>
+        </div>
+        <div class="kpi-card yellow">
+          <div class="kpi-label">Avg Achievement</div>
+          <div class="kpi-value" id="ib-kpi-ach">-</div>
+          <div class="kpi-unit">%</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Avg HC Inbound</div>
+          <div class="kpi-value" id="ib-kpi-hc">-</div>
+          <div class="kpi-unit">คน (Actual)</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Avg Productivity</div>
+          <div class="kpi-value" id="ib-kpi-prod">-</div>
+          <div class="kpi-unit">Cases/MH</div>
+        </div>
+      </div>
+      <div class="chart-grid full">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Plan vs Actual Receive (Cases/Day)</div></div>
+            <span class="chart-tag tag-inbound">Inbound</span>
+          </div>
+          <canvas id="chart-ib-plan-act" style="max-height:280px"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Source Breakdown (by DC)</div></div>
+            <span class="chart-tag tag-inbound">Source</span>
+          </div>
+          <canvas id="chart-ib-source"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">HC Plan vs Actual — Inbound</div></div>
+            <span class="chart-tag tag-inbound">HC</span>
+          </div>
+          <canvas id="chart-ib-hc"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         VIEW: OUTBOUND STO
+    ============================================================ -->
+    <div class="view" id="view-sto">
+      <div class="section-title">Outbound STO — โอนย้ายสินค้าระหว่างคลัง</div>
+      <div class="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-label">Total STO Cases</div>
+          <div class="kpi-value" id="sto-kpi-cases">-</div>
+          <div class="kpi-unit">Cases</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Achievement vs Plan</div>
+          <div class="kpi-value" id="sto-kpi-ach">-</div>
+          <div class="kpi-unit">%</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Total Trucks Used</div>
+          <div class="kpi-value" id="sto-kpi-truck">-</div>
+          <div class="kpi-unit">Trucks</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Avg Productivity</div>
+          <div class="kpi-value" id="sto-kpi-prod">-</div>
+          <div class="kpi-unit">Cases/MH</div>
+        </div>
+      </div>
+      <div class="chart-grid full">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">STO Plan vs Actual (Cases/Day)</div></div>
+            <span class="chart-tag tag-sto">STO</span>
+          </div>
+          <canvas id="chart-sto-plan" style="max-height:280px"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Dispatch by DC (Stacked)</div></div>
+            <span class="chart-tag tag-sto">Dispatch</span>
+          </div>
+          <canvas id="chart-sto-dispatch"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Trucks Plan vs Actual</div></div>
+            <span class="chart-tag tag-sto">Trucks</span>
+          </div>
+          <canvas id="chart-sto-trucks"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         VIEW: OUTBOUND SO
+    ============================================================ -->
+    <div class="view" id="view-so">
+      <div class="section-title">Outbound SO — จ่ายสินค้าให้ลูกค้า</div>
+      <div class="kpi-grid">
+        <div class="kpi-card red">
+          <div class="kpi-label">Total SO Cases</div>
+          <div class="kpi-value" id="so-kpi-cases">-</div>
+          <div class="kpi-unit">Cases</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Achievement vs Plan</div>
+          <div class="kpi-value" id="so-kpi-ach">-</div>
+          <div class="kpi-unit">%</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">MT Share</div>
+          <div class="kpi-value" id="so-kpi-mt">-</div>
+          <div class="kpi-unit">%</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Avg Productivity SO</div>
+          <div class="kpi-value" id="so-kpi-prod">-</div>
+          <div class="kpi-unit">Cases/MH</div>
+        </div>
+      </div>
+      <div class="chart-grid full">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">SO Plan vs Actual (Cases/Day)</div></div>
+            <span class="chart-tag tag-so">SO</span>
+          </div>
+          <canvas id="chart-so-plan" style="max-height:280px"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">SO Channel Mix — MT / TT / Export</div></div>
+            <span class="chart-tag tag-so">Channel</span>
+          </div>
+          <canvas id="chart-so-channel"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Truck Usage by Type</div></div>
+            <span class="chart-tag tag-so">Trucks</span>
+          </div>
+          <canvas id="chart-so-trucks"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         VIEW: STOCK CONTROL
+    ============================================================ -->
+    <div class="view" id="view-stock">
+      <div class="section-title">Stock Control — ควบคุมสต็อกและพื้นที่</div>
+      <div class="kpi-grid">
+        <div class="kpi-card green">
+          <div class="kpi-label">Latest Stock</div>
+          <div class="kpi-value" id="st-kpi-latest">-</div>
+          <div class="kpi-unit">Cases (K)</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Max Capacity</div>
+          <div class="kpi-value" id="st-kpi-cap">-</div>
+          <div class="kpi-unit">Cases (K)</div>
+        </div>
+        <div class="kpi-card teal">
+          <div class="kpi-label">Utilization Rate</div>
+          <div class="kpi-value" id="st-kpi-util">-</div>
+          <div class="kpi-unit">% of Capacity</div>
+        </div>
+        <div class="kpi-card teal">
+          <div class="kpi-label">Active Bin Locations</div>
+          <div class="kpi-value" id="st-kpi-bins">-</div>
+          <div class="kpi-unit">/ 5,700 Total</div>
+        </div>
+      </div>
+      <div class="chart-grid full">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Inventory Cases (หน่วย K) vs Max Capacity</div>
+              <div class="chart-subtitle">แนวโน้มสต็อกสินค้าประจำวัน</div>
+            </div>
+            <span class="chart-tag tag-stock">Cases K</span>
+          </div>
+          <canvas id="chart-stock-cases" style="max-height:280px"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid full">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Pallet Occupancy — Active vs Total Bin Locations</div>
+              <div class="chart-subtitle">การใช้งาน Bin Location (Pallets)</div>
+            </div>
+            <span class="chart-tag tag-stock">Pallets</span>
+          </div>
+          <canvas id="chart-stock-pallets" style="max-height:280px"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         VIEW: PRODUCTIVITY
+    ============================================================ -->
+    <div class="view" id="view-productivity">
+      <div class="section-title">Productivity — ประสิทธิภาพการทำงานรายทีม</div>
+      <div class="kpi-grid">
+        <div class="kpi-card yellow">
+          <div class="kpi-label">Inbound Productivity</div>
+          <div class="kpi-value" id="pr-kpi-ib">-</div>
+          <div class="kpi-unit">Cases/MH avg</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">STO Productivity</div>
+          <div class="kpi-value" id="pr-kpi-sto">-</div>
+          <div class="kpi-unit">Cases/MH avg</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">SO Productivity</div>
+          <div class="kpi-value" id="pr-kpi-so">-</div>
+          <div class="kpi-unit">Cases/MH avg</div>
+        </div>
+      </div>
+      <div class="chart-grid full">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">Productivity Trend — All Teams (Cases/MH)</div></div>
+            <span class="chart-tag tag-prod">Productivity</span>
+          </div>
+          <canvas id="chart-prod-trend" style="max-height:300px"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">HC Utilization — Inbound</div></div>
+            <span class="chart-tag tag-inbound">HC</span>
+          </div>
+          <canvas id="chart-prod-hc-ib"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div><div class="chart-title">HC Utilization — STO & SO</div></div>
+            <span class="chart-tag tag-sto">HC</span>
+          </div>
+          <canvas id="chart-prod-hc-sto"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end #content -->
+</div><!-- end #main -->
+
+<!-- ============================================================
+     IMPORT MODAL
+============================================================ -->
+<div id="import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card);border-radius:16px;padding:28px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h3 style="font-size:15px;font-weight:700;color:var(--text-primary)">📂 Import CSV Data</h3>
+      <div class="btn-icon" onclick="document.getElementById('import-modal').style.display='none'">✕</div>
+    </div>
+    <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;line-height:1.6">
+      อัพโหลด CSV ไฟล์ที่ Export จาก Excel แต่ละ Sheet โดยไฟล์ต้องมีหัวคอลัมน์ตรงกับชีต INBOUND / OUTBOUND STO / OUTBOUND SO / Stock Inventory
+    </p>
+    <div class="import-zone" onclick="document.getElementById('csv-input').click()">
+      <div class="icon">📄</div>
+      <p>คลิกเพื่อเลือกไฟล์ CSV</p>
+      <small>รองรับ: inbound.csv, outbound_sto.csv, outbound_so.csv, stock.csv</small>
+    </div>
+    <input type="file" id="csv-input" accept=".csv" multiple style="display:none" onchange="handleCSVImport(event)">
+    <div id="import-log" style="font-size:11px;color:var(--green-ok);font-family:'IBM Plex Mono',monospace;min-height:20px;"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA OBJECT — แก้ไขข้อมูลตรงนี้เพื่ออัปเดต Dashboard
+// วิธีแก้: เพิ่ม/ลบ row ใน array แต่ละ section
+// Format วันที่: "YYYY-MM-DD"
+// ============================================================
+
+const DATA = {
+  // --- INBOUND ---
+  inbound: [
+    // { date, planReceive, actTotal, act7151, act7174, act7176, act7177, act7178, planHC, actHC, productivity }
+    { date:"2026-04-01", planReceive:78589, actTotal:78830, act7151:70472, act7174:0,    act7176:0,   act7177:8358, act7178:0,   planHC:53, actHC:43, productivity:282 },
+    { date:"2026-04-02", planReceive:79738, actTotal:76209, act7151:70843, act7174:1797, act7176:0,   act7177:3569, act7178:0,   planHC:53, actHC:44, productivity:264 },
+    { date:"2026-04-03", planReceive:76819, actTotal:76397, act7151:69501, act7174:31,   act7176:0,   act7177:6852, act7178:13,  planHC:53, actHC:42, productivity:299 },
+    { date:"2026-04-04", planReceive:56100, actTotal:62828, act7151:55784, act7174:567,  act7176:0,   act7177:5977, act7178:500, planHC:25, actHC:25, productivity:278 },
+    { date:"2026-04-05", planReceive:26400, actTotal:26208, act7151:26208, act7174:0,    act7176:0,   act7177:0,    act7178:0,   planHC:16, actHC:16, productivity:265 },
+    { date:"2026-04-06", planReceive:80950, actTotal:84333, act7151:75808, act7174:0,    act7176:200, act7177:8325, act7178:0,   planHC:53, actHC:44, productivity:300 },
+  ],
+
+  // --- OUTBOUND STO ---
+  sto: [
+    // { date, planPutAway, actPutAway, planSTO, actSTO, planTruck, actTruck, planHC, actHC, dis7174, dis7176, dis7177, dis7178, productivity }
+    { date:"2026-04-01", planPutAway:75569, actPutAway:70472, planSTO:60000, actSTO:55835, planTruck:40, actTruck:39, planHC:38, actHC:34, dis7174:6199, dis7176:8029,  dis7177:31154, dis7178:10453, productivity:497 },
+    { date:"2026-04-02", planPutAway:75538, actPutAway:70843, planSTO:55000, actSTO:48737, planTruck:37, actTruck:34, planHC:38, actHC:33, dis7174:4570, dis7176:7990,  dis7177:26992, dis7178:9185,  productivity:482 },
+    { date:"2026-04-03", planPutAway:70819, actPutAway:69501, planSTO:55000, actSTO:47258, planTruck:35, actTruck:32, planHC:38, actHC:33, dis7174:8165, dis7176:0,     dis7177:24475, dis7178:14618, productivity:491 },
+    { date:"2026-04-04", planPutAway:56200, actPutAway:55784, planSTO:55000, actSTO:33443, planTruck:30, actTruck:22, planHC:38, actHC:38, dis7174:5100, dis7176:7150,  dis7177:13273, dis7178:7920,  productivity:354 },
+    { date:"2026-04-05", planPutAway:21200, actPutAway:26208, planSTO:0,     actSTO:0,     planTruck:0,  actTruck:0,  planHC:8,  actHC:0,  dis7174:0,    dis7176:0,     dis7177:0,     dis7178:0,     productivity:0 },
+    { date:"2026-04-06", planPutAway:76950, actPutAway:75811, planSTO:55000, actSTO:38801, planTruck:26, actTruck:26, planHC:38, actHC:36, dis7174:4457, dis7176:8575,  dis7177:15261, dis7178:10508, productivity:448 },
+  ],
+
+  // --- OUTBOUND SO ---
+  so: [
+    // { date, planSO, actMT, actTT, actExport, totalSO, truckMT, truck6W, truck4W, planHC, actHC, productivity }
+    { date:"2026-04-01", planSO:19700, actMT:21641, actTT:9669,  actExport:0,    totalSO:31310, truckMT:8,  truck6W:0, truck4W:9,  planHC:24, actHC:22, productivity:329    },
+    { date:"2026-04-02", planSO:24600, actMT:24232, actTT:10558, actExport:0,    totalSO:34790, truckMT:12, truck6W:9, truck4W:21, planHC:24, actHC:22, productivity:352    },
+    { date:"2026-04-03", planSO:24600, actMT:19257, actTT:14292, actExport:0,    totalSO:33549, truckMT:9,  truck6W:11,truck4W:23, planHC:24, actHC:22, productivity:319    },
+    { date:"2026-04-04", planSO:24600, actMT:39785, actTT:10948, actExport:0,    totalSO:50733, truckMT:18, truck6W:2, truck4W:15, planHC:24, actHC:22, productivity:335    },
+    { date:"2026-04-06", planSO:24600, actMT:30154, actTT:5460,  actExport:1896, totalSO:37510, truckMT:9,  truck6W:2, truck4W:10, planHC:23, actHC:23, productivity:312.58 },
+  ],
+
+  // --- STOCK INVENTORY ---
+  stock: [
+    // { date, maxCap, stockCases, totalBins, activeBins }
+    { date:"2026-04-01", maxCap:260000, stockCases:240141, totalBins:5700, activeBins:5060 },
+    { date:"2026-04-02", maxCap:260000, stockCases:235747, totalBins:5700, activeBins:4998 },
+    { date:"2026-04-03", maxCap:260000, stockCases:228553, totalBins:5700, activeBins:4698 },
+    { date:"2026-04-04", maxCap:260000, stockCases:220692, totalBins:5700, activeBins:5033 },
+    { date:"2026-04-05", maxCap:260000, stockCases:234288, totalBins:5700, activeBins:5033 },
+    { date:"2026-04-06", maxCap:260000, stockCases:237583, totalBins:5700, activeBins:5028 },
+  ]
+};
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+const fmtK = v => v == null || isNaN(v) ? '—' : (v >= 1000 ? (v/1000).toFixed(1)+'K' : v.toLocaleString());
+const fmtN = v => v == null || isNaN(v) ? '—' : Math.round(v).toLocaleString();
+const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+const sum = arr => arr.reduce((a,b)=>a+b,0);
+const pct = (a,b) => b ? ((a/b)*100).toFixed(1) : '—';
+
+const CHART_DEFAULTS = {
+  font: { family: "IBM Plex Mono, monospace" },
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } } },
+  scales: {
+    x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } },
+    y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }
+  }
+};
+
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function makeChart(id, config) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, config);
+}
+
+// ============================================================
+// FILTER LOGIC — กรองข้อมูลตามช่วงวันที่
+// ============================================================
+function getFilteredData() {
+  const from = document.getElementById('date-from').value;
+  const to   = document.getElementById('date-to').value;
+  const filter = d => d.date >= from && d.date <= to;
+  return {
+    inbound: DATA.inbound.filter(filter),
+    sto:     DATA.sto.filter(filter),
+    so:      DATA.so.filter(filter),
+    stock:   DATA.stock.filter(filter),
+  };
+}
+
+function applyFilters() {
+  buildAll();
+}
+
+function toggleChip(el) {
+  el.classList.toggle('active');
+}
+
+// ============================================================
+// BUILD ALL VIEWS
+// ============================================================
+function buildAll() {
+  const D = getFilteredData();
+  buildHomepage(D);
+  buildInbound(D);
+  buildSTO(D);
+  buildSO(D);
+  buildStock(D);
+  buildProductivity(D);
+}
+
+// --- HOMEPAGE ---
+function buildHomepage(D) {
+  const ibTotal = sum(D.inbound.map(d=>d.actTotal));
+  const ibPlan  = sum(D.inbound.map(d=>d.planReceive));
+  const stoTotal = sum(D.sto.map(d=>d.actSTO));
+  const stoPlan  = sum(D.sto.map(d=>d.planSTO));
+  const soTotal  = sum(D.so.map(d=>d.totalSO));
+  const soPlan   = sum(D.so.map(d=>d.planSO));
+  const lastStock = D.stock.length ? D.stock[D.stock.length-1].stockCases : 0;
+  const avgActiveBins = D.stock.length ? avg(D.stock.map(d=>d.activeBins)) : 0;
+
+  document.getElementById('kpi-inbound-total').textContent = fmtK(ibTotal);
+  document.getElementById('kpi-sto-total').textContent     = fmtK(stoTotal);
+  document.getElementById('kpi-so-total').textContent      = fmtK(soTotal);
+  document.getElementById('kpi-stock-avg').textContent     = fmtK(lastStock);
+  document.getElementById('kpi-pallet').textContent        = Math.round(avgActiveBins).toLocaleString();
+
+  const setBadge = (id, a, b, cls) => {
+    const el = document.getElementById(id);
+    const p  = b > 0 ? ((a/b)*100).toFixed(1) : '—';
+    el.textContent = p !== '—' ? p+'%' : '—';
+    el.className = 'kpi-badge ' + (parseFloat(p) >= 100 ? 'up' : 'down');
+  };
+  setBadge('kpi-inbound-ach', ibTotal, ibPlan);
+  setBadge('kpi-sto-ach', stoTotal, stoPlan);
+  setBadge('kpi-so-ach', soTotal, soPlan);
+
+  const stockPctEl = document.getElementById('kpi-stock-pct');
+  const stockPct = D.stock.length ? pct(lastStock, D.stock[D.stock.length-1].maxCap) : '—';
+  stockPctEl.textContent = stockPct !== '—' ? stockPct+'% Util.' : '—';
+  stockPctEl.className = 'kpi-badge neutral';
+
+  const palletPctEl = document.getElementById('kpi-pallet-pct');
+  palletPctEl.textContent = D.stock.length ? pct(avgActiveBins, 5700)+'% used' : '—';
+  palletPctEl.className = 'kpi-badge neutral';
+
+  document.getElementById('kpi-prod-ib').textContent  = D.inbound.length ? avg(D.inbound.filter(d=>d.productivity>0).map(d=>d.productivity)).toFixed(0) : '—';
+  document.getElementById('kpi-prod-sto').textContent = D.sto.length ? avg(D.sto.filter(d=>d.productivity>0).map(d=>d.productivity)).toFixed(0) : '—';
+  document.getElementById('kpi-prod-so').textContent  = D.so.length ? avg(D.so.filter(d=>d.productivity>0).map(d=>d.productivity)).toFixed(0) : '—';
+
+  const labels = D.inbound.map(d => d.date.slice(5));
+  makeChart('chart-home-inbound', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'Plan', data: D.inbound.map(d=>d.planReceive), backgroundColor:'rgba(247,195,0,0.25)', borderColor:'#F7C300', borderWidth:2, type:'line', fill:true, tension:0.3, pointRadius:3 },
+        { label:'Actual', data: D.inbound.map(d=>d.actTotal),  backgroundColor:'rgba(247,195,0,0.7)', borderRadius:4, borderSkipped:false }
+      ]
+    },
+    options: { ...CHART_DEFAULTS }
+  });
+
+  const stoLabels = D.sto.map(d=>d.date.slice(5));
+  const soMap = {};
+  D.so.forEach(d => soMap[d.date] = d.totalSO);
+  makeChart('chart-home-outbound', {
+    type: 'bar',
+    data: {
+      labels: stoLabels,
+      datasets: [
+        { label:'STO Actual', data: D.sto.map(d=>d.actSTO), backgroundColor:'rgba(59,130,246,0.75)', borderRadius:4, stack:'s' },
+        { label:'SO Actual',  data: D.sto.map(d=>soMap[d.date]||0), backgroundColor:'rgba(215,32,39,0.75)', borderRadius:4, stack:'s' }
+      ]
+    },
+    options: { ...CHART_DEFAULTS, scales: { x: { stacked:true, grid:{color:'rgba(0,0,0,0.04)'} }, y: { stacked:true, grid:{color:'rgba(0,0,0,0.04)'} } } }
+  });
+
+  // Home table
+  const tbody = document.getElementById('home-table-body');
+  tbody.innerHTML = '';
+  const allDates = [...new Set([...D.inbound.map(d=>d.date), ...D.sto.map(d=>d.date)])].sort();
+  const ibMap={}, stoMap2={}, soMap2={}, stMap={};
+  D.inbound.forEach(d => ibMap[d.date]=d);
+  D.sto.forEach(d => stoMap2[d.date]=d);
+  D.so.forEach(d => soMap2[d.date]=d);
+  D.stock.forEach(d => stMap[d.date]=d);
+  allDates.forEach(date => {
+    const ib = ibMap[date]||{}, sto=stoMap2[date]||{}, so=soMap2[date]||{}, st=stMap[date]||{};
+    const pallet = st.activeBins && st.totalBins ? ((st.activeBins/st.totalBins)*100).toFixed(0)+'%' : '—';
+    tbody.innerHTML += `<tr>
+      <td>${date}</td>
+      <td>${fmtN(ib.planReceive)}</td>
+      <td>${fmtN(ib.actTotal)}</td>
+      <td>${fmtN(sto.planSTO)}</td>
+      <td>${fmtN(sto.actSTO)}</td>
+      <td>${fmtN(so.planSO)}</td>
+      <td>${fmtN(so.totalSO)}</td>
+      <td>${st.stockCases ? fmtK(st.stockCases) : '—'}</td>
+      <td><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:${st.activeBins&&st.totalBins?(st.activeBins/st.totalBins*100).toFixed(0):0}%;background:var(--accent-teal)"></div></div><span>${pallet}</span></div></td>
+    </tr>`;
+  });
+}
+
+// --- INBOUND ---
+function buildInbound(D) {
+  const total = sum(D.inbound.map(d=>d.actTotal));
+  const plan  = sum(D.inbound.map(d=>d.planReceive));
+  const hc    = avg(D.inbound.filter(d=>d.actHC>0).map(d=>d.actHC));
+  const prod  = avg(D.inbound.filter(d=>d.productivity>0).map(d=>d.productivity));
+  document.getElementById('ib-kpi-total').textContent = fmtK(total);
+  document.getElementById('ib-kpi-ach').textContent   = pct(total, plan);
+  document.getElementById('ib-kpi-hc').textContent    = hc.toFixed(1);
+  document.getElementById('ib-kpi-prod').textContent  = prod.toFixed(0);
+
+  const labels = D.inbound.map(d=>d.date.slice(5));
+  makeChart('chart-ib-plan-act', { type:'bar', data:{labels,datasets:[
+    {label:'Plan',type:'line',data:D.inbound.map(d=>d.planReceive),borderColor:'#F7C300',backgroundColor:'rgba(247,195,0,0.1)',fill:true,tension:0.3,pointRadius:4,borderWidth:2},
+    {label:'Actual Total',data:D.inbound.map(d=>d.actTotal),backgroundColor:'rgba(247,195,0,0.8)',borderRadius:5,borderSkipped:false},
+  ]}, options:{...CHART_DEFAULTS} });
+
+  const src7151 = D.inbound.map(d=>d.act7151||0);
+  const src7174 = D.inbound.map(d=>d.act7174||0);
+  const src7177 = D.inbound.map(d=>d.act7177||0);
+  const src7178 = D.inbound.map(d=>d.act7178||0);
+  makeChart('chart-ib-source', { type:'bar', data:{labels,datasets:[
+    {label:'7151 (โรงงาน)',data:src7151,backgroundColor:'rgba(247,195,0,0.85)',borderRadius:3,stack:'s'},
+    {label:'7174',data:src7174,backgroundColor:'rgba(249,115,22,0.8)',borderRadius:3,stack:'s'},
+    {label:'7177',data:src7177,backgroundColor:'rgba(59,130,246,0.8)',borderRadius:3,stack:'s'},
+    {label:'7178',data:src7178,backgroundColor:'rgba(16,185,129,0.8)',borderRadius:3,stack:'s'},
+  ]}, options:{...CHART_DEFAULTS, scales:{x:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}},y:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}}}} });
+
+  makeChart('chart-ib-hc', { type:'bar', data:{labels,datasets:[
+    {label:'Plan HC',data:D.inbound.map(d=>d.planHC),backgroundColor:'rgba(247,195,0,0.3)',borderColor:'#F7C300',borderWidth:1.5,type:'line',tension:0.3,pointRadius:3,fill:false},
+    {label:'Actual HC',data:D.inbound.map(d=>d.actHC),backgroundColor:'rgba(247,195,0,0.75)',borderRadius:4},
+  ]}, options:{...CHART_DEFAULTS} });
+}
+
+// --- STO ---
+function buildSTO(D) {
+  const total = sum(D.sto.map(d=>d.actSTO));
+  const plan  = sum(D.sto.map(d=>d.planSTO));
+  const trucks= sum(D.sto.map(d=>d.actTruck));
+  const prod  = avg(D.sto.filter(d=>d.productivity>0).map(d=>d.productivity));
+  document.getElementById('sto-kpi-cases').textContent = fmtK(total);
+  document.getElementById('sto-kpi-ach').textContent   = pct(total, plan);
+  document.getElementById('sto-kpi-truck').textContent = trucks;
+  document.getElementById('sto-kpi-prod').textContent  = prod.toFixed(0);
+
+  const labels = D.sto.map(d=>d.date.slice(5));
+  makeChart('chart-sto-plan', { type:'bar', data:{labels,datasets:[
+    {label:'Plan STO',type:'line',data:D.sto.map(d=>d.planSTO),borderColor:'#3B82F6',backgroundColor:'rgba(59,130,246,0.08)',fill:true,tension:0.3,pointRadius:4,borderWidth:2},
+    {label:'Actual STO',data:D.sto.map(d=>d.actSTO),backgroundColor:'rgba(59,130,246,0.78)',borderRadius:5},
+  ]}, options:{...CHART_DEFAULTS} });
+
+  makeChart('chart-sto-dispatch', { type:'bar', data:{labels,datasets:[
+    {label:'DC 7174',data:D.sto.map(d=>d.dis7174),backgroundColor:'rgba(59,130,246,0.85)',borderRadius:3,stack:'s'},
+    {label:'DC 7176',data:D.sto.map(d=>d.dis7176),backgroundColor:'rgba(147,197,253,0.9)',borderRadius:3,stack:'s'},
+    {label:'DC 7177',data:D.sto.map(d=>d.dis7177),backgroundColor:'rgba(30,64,175,0.85)',borderRadius:3,stack:'s'},
+    {label:'DC 7178',data:D.sto.map(d=>d.dis7178),backgroundColor:'rgba(96,165,250,0.85)',borderRadius:3,stack:'s'},
+  ]}, options:{...CHART_DEFAULTS, scales:{x:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}},y:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}}}} });
+
+  makeChart('chart-sto-trucks', { type:'bar', data:{labels,datasets:[
+    {label:'Plan Truck',type:'line',data:D.sto.map(d=>d.planTruck),borderColor:'#3B82F6',tension:0.3,pointRadius:3,fill:false,borderWidth:1.5},
+    {label:'Actual Truck',data:D.sto.map(d=>d.actTruck),backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
+  ]}, options:{...CHART_DEFAULTS} });
+}
+
+// --- SO ---
+function buildSO(D) {
+  const total = sum(D.so.map(d=>d.totalSO));
+  const plan  = sum(D.so.map(d=>d.planSO));
+  const mt    = sum(D.so.map(d=>d.actMT));
+  const prod  = avg(D.so.filter(d=>d.productivity>0).map(d=>d.productivity));
+  document.getElementById('so-kpi-cases').textContent = fmtK(total);
+  document.getElementById('so-kpi-ach').textContent   = pct(total, plan);
+  document.getElementById('so-kpi-mt').textContent    = pct(mt, total);
+  document.getElementById('so-kpi-prod').textContent  = prod.toFixed(0);
+
+  const labels = D.so.map(d=>d.date.slice(5));
+  makeChart('chart-so-plan', { type:'bar', data:{labels,datasets:[
+    {label:'Plan SO',type:'line',data:D.so.map(d=>d.planSO),borderColor:'#D72027',backgroundColor:'rgba(215,32,39,0.08)',fill:true,tension:0.3,pointRadius:4,borderWidth:2},
+    {label:'Actual SO',data:D.so.map(d=>d.totalSO),backgroundColor:'rgba(215,32,39,0.75)',borderRadius:5},
+  ]}, options:{...CHART_DEFAULTS} });
+
+  makeChart('chart-so-channel', { type:'bar', data:{labels,datasets:[
+    {label:'MT',data:D.so.map(d=>d.actMT),backgroundColor:'rgba(215,32,39,0.85)',borderRadius:3,stack:'s'},
+    {label:'TT',data:D.so.map(d=>d.actTT),backgroundColor:'rgba(251,146,60,0.85)',borderRadius:3,stack:'s'},
+    {label:'Export',data:D.so.map(d=>d.actExport),backgroundColor:'rgba(134,25,143,0.7)',borderRadius:3,stack:'s'},
+  ]}, options:{...CHART_DEFAULTS, scales:{x:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}},y:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}}}} });
+
+  makeChart('chart-so-trucks', { type:'bar', data:{labels,datasets:[
+    {label:'MT Truck',data:D.so.map(d=>d.truckMT),backgroundColor:'rgba(215,32,39,0.8)',borderRadius:3,stack:'s'},
+    {label:'TT 6W',data:D.so.map(d=>d.truck6W),backgroundColor:'rgba(251,146,60,0.8)',borderRadius:3,stack:'s'},
+    {label:'TT 4W',data:D.so.map(d=>d.truck4W),backgroundColor:'rgba(253,186,116,0.85)',borderRadius:3,stack:'s'},
+  ]}, options:{...CHART_DEFAULTS, scales:{x:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}},y:{stacked:true,grid:{color:'rgba(0,0,0,0.04)'}}}} });
+}
+
+// --- STOCK ---
+function buildStock(D) {
+  const last = D.stock.length ? D.stock[D.stock.length-1] : {};
+  document.getElementById('st-kpi-latest').textContent = fmtK(last.stockCases);
+  document.getElementById('st-kpi-cap').textContent    = fmtK(last.maxCap);
+  document.getElementById('st-kpi-util').textContent   = last.stockCases && last.maxCap ? pct(last.stockCases, last.maxCap) : '—';
+  document.getElementById('st-kpi-bins').textContent   = last.activeBins ? last.activeBins.toLocaleString() : '—';
+
+  const labels = D.stock.map(d=>d.date.slice(5));
+  makeChart('chart-stock-cases', { type:'line', data:{labels,datasets:[
+    {label:'Max Capacity',data:D.stock.map(d=>d.maxCap/1000),borderColor:'#6B7280',borderDash:[5,4],fill:false,tension:0,pointRadius:2,borderWidth:1.5},
+    {label:'Stock Inventory (K Cases)',data:D.stock.map(d=>d.stockCases/1000),borderColor:'#16A34A',backgroundColor:'rgba(22,163,74,0.12)',fill:true,tension:0.3,pointRadius:4,borderWidth:2.5},
+  ]}, options:{...CHART_DEFAULTS} });
+
+  makeChart('chart-stock-pallets', { type:'bar', data:{labels,datasets:[
+    {label:'Total Bin Locations',data:D.stock.map(d=>d.totalBins),backgroundColor:'rgba(107,114,128,0.2)',borderRadius:4},
+    {label:'Active Bin Locations',data:D.stock.map(d=>d.activeBins),backgroundColor:'rgba(14,165,233,0.75)',borderRadius:4},
+  ]}, options:{...CHART_DEFAULTS} });
+}
+
+// --- PRODUCTIVITY ---
+function buildProductivity(D) {
+  const ibProd  = avg(D.inbound.filter(d=>d.productivity>0).map(d=>d.productivity));
+  const stoProd = avg(D.sto.filter(d=>d.productivity>0).map(d=>d.productivity));
+  const soProd  = avg(D.so.filter(d=>d.productivity>0).map(d=>d.productivity));
+  document.getElementById('pr-kpi-ib').textContent  = ibProd.toFixed(0);
+  document.getElementById('pr-kpi-sto').textContent = stoProd.toFixed(0);
+  document.getElementById('pr-kpi-so').textContent  = soProd.toFixed(0);
+
+  const ibLabels = D.inbound.map(d=>d.date.slice(5));
+  makeChart('chart-prod-trend', { type:'line', data:{labels:ibLabels,datasets:[
+    {label:'Inbound (Cases/MH)',data:D.inbound.map(d=>d.productivity||null),borderColor:'#F7C300',backgroundColor:'rgba(247,195,0,0.1)',fill:false,tension:0.3,pointRadius:4,borderWidth:2.5},
+    {label:'STO (Cases/MH)',data:D.sto.map((d,i)=>d.productivity||null),borderColor:'#3B82F6',fill:false,tension:0.3,pointRadius:4,borderWidth:2.5},
+    {label:'SO (Cases/MH)',data:D.so.map((d,i)=>d.productivity||null),borderColor:'#D72027',fill:false,tension:0.3,pointRadius:4,borderWidth:2.5},
+  ]}, options:{...CHART_DEFAULTS} });
+
+  makeChart('chart-prod-hc-ib', { type:'bar', data:{labels:ibLabels,datasets:[
+    {label:'Plan HC',data:D.inbound.map(d=>d.planHC),type:'line',borderColor:'#F7C300',borderDash:[4,3],fill:false,pointRadius:3,tension:0,borderWidth:1.5},
+    {label:'Actual HC',data:D.inbound.map(d=>d.actHC),backgroundColor:'rgba(247,195,0,0.75)',borderRadius:4},
+  ]}, options:{...CHART_DEFAULTS} });
+
+  const stoLabels = D.sto.map(d=>d.date.slice(5));
+  makeChart('chart-prod-hc-sto', { type:'bar', data:{labels:stoLabels,datasets:[
+    {label:'STO Plan HC',data:D.sto.map(d=>d.planHC),type:'line',borderColor:'#3B82F6',borderDash:[4,3],fill:false,pointRadius:3,tension:0,borderWidth:1.5},
+    {label:'STO Actual HC',data:D.sto.map(d=>d.actHC),backgroundColor:'rgba(59,130,246,0.75)',borderRadius:4,stack:'s'},
+    {label:'SO Plan HC',data:D.so.map((d,i)=>D.sto[i]?d.planHC:null),type:'line',borderColor:'#D72027',borderDash:[4,3],fill:false,pointRadius:3,tension:0,borderWidth:1.5},
+    {label:'SO Actual HC',data:D.so.map(d=>d.actHC),backgroundColor:'rgba(215,32,39,0.6)',borderRadius:4,stack:'s2'},
+  ]}, options:{...CHART_DEFAULTS} });
+}
+
+// ============================================================
+// VIEW SWITCHING
+// ============================================================
+const VIEW_TITLES = {
+  homepage:'📊 Dashboard Overview', inbound:'📦 Inbound Operations',
+  sto:'🚚 Outbound STO', so:'🛒 Outbound SO',
+  stock:'🏭 Stock Control', productivity:'⚡ Productivity'
+};
+function switchView(name, el) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('topbar-title').textContent = VIEW_TITLES[name] || name;
+}
+
+// ============================================================
+// THEME TOGGLE
+// ============================================================
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  // Update chart colors
+  const txtColor = isDark ? '#1A1F36' : '#F0F4FF';
+  const gridColor = isDark ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)';
+  Object.values(charts).forEach(c => {
+    if (c.options.scales) {
+      Object.values(c.options.scales).forEach(s => {
+        if (s.ticks) s.ticks.color = txtColor;
+        if (s.grid)  s.grid.color  = gridColor;
+      });
+      c.update();
+    }
+  });
+  document.querySelector('.btn-icon[onclick="toggleTheme()"]').textContent = isDark ? '🌙' : '☀️';
+}
+
+// ============================================================
+// CSV IMPORT (optional — parses CSV and merges into DATA)
+// ============================================================
+function handleCSVImport(event) {
+  const files = event.target.files;
+  const log   = document.getElementById('import-log');
+  log.textContent = '';
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const lines  = e.target.result.trim().split('\n');
+      const headers = lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/\s+/g,'_'));
+      const rows = lines.slice(1).map(line => {
+        const vals = line.split(',');
+        const obj  = {};
+        headers.forEach((h,i) => obj[h] = vals[i]?.trim());
+        return obj;
+      }).filter(r=>r[headers[0]]);
+      // Auto-detect sheet type from filename
+      const fn = file.name.toLowerCase();
+      if      (fn.includes('inbound'))  { DATA.inbound = parseCSVInbound(rows);  log.textContent += '✅ Inbound loaded. '; }
+      else if (fn.includes('sto'))       { DATA.sto     = parseCSVSTO(rows);      log.textContent += '✅ STO loaded. '; }
+      else if (fn.includes('so'))        { DATA.so      = parseCSVSO(rows);       log.textContent += '✅ SO loaded. '; }
+      else if (fn.includes('stock'))     { DATA.stock   = parseCSVStock(rows);    log.textContent += '✅ Stock loaded. '; }
+      else { log.textContent += '⚠️ ไม่สามารถระบุประเภทไฟล์: '+file.name+'. '; }
+      buildAll();
+    };
+    reader.readAsText(file);
+  });
+}
+
+// CSV parsers — ชื่อ column ต้องตรงกับ header ใน CSV ที่ export จาก Excel
+const n = v => parseFloat(v)||0;
+function parseCSVInbound(rows) {
+  return rows.map(r=>({ date:r['date']||r['วันที่'],planReceive:n(r['plan_receive']),actTotal:n(r['act._total_receive']),act7151:n(r['act._receive_7151']),act7174:n(r['act._receive_7174']),act7176:n(r['act._receive_7176']),act7177:n(r['act._receive_7177']),act7178:n(r['act._receive_7178']),planHC:n(r['plan_hc-inbound']),actHC:n(r['act._hc-inbound']),productivity:n(r['act.productivity_inbound']) }));
+}
+function parseCSVSTO(rows) {
+  return rows.map(r=>({ date:r['date']||r['วันที่'],planPutAway:n(r['plan_put_away']),actPutAway:n(r['act.put_away']),planSTO:n(r['plan.sto']),actSTO:n(r['act.sto']),planTruck:n(r['plan_truck_sto']),actTruck:n(r['act.truck_sto']),planHC:n(r['plan_hc-sto']),actHC:n(r['act._hc-sto']),dis7174:n(r['dis.7174']),dis7176:n(r['dis.7176']),dis7177:n(r['dis.7177']),dis7178:n(r['dis.7178']),productivity:n(r['act.productivity_sto']) }));
+}
+function parseCSVSO(rows) {
+  return rows.map(r=>({ date:r['date']||r['วันที่'],planSO:n(r['plan.so']),actMT:n(r['act.so-mt']),actTT:n(r['act.so-tt']),actExport:n(r['act.so-export']),totalSO:n(r['total_so']),truckMT:n(r['mt-truck']),truck6W:n(r['tt_6w-truck']),truck4W:n(r['tt_4w-truck']),planHC:n(r['plan_hc-so']),actHC:n(r['act._hc-so']),productivity:n(r['act.productivity_so']) }));
+}
+function parseCSVStock(rows) {
+  return rows.map(r=>({ date:r['date']||r['วันที่'],maxCap:n(r['max_cap_cases']),stockCases:n(r['stock_inventory_cases']),totalBins:n(r['total_bin_location']),activeBins:n(r['active_bin_locations']) }));
+}
+
+// ============================================================
+// INIT
+// ============================================================
+buildAll();
+</script>
+</body>
+</html>
