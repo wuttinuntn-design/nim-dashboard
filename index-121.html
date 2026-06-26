@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DC7171 ลำพูน — Daily Operation Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" id="tablerIconsCss">
+<script>
+// Icon font reliability check: jsDelivr occasionally has propagation issues
+// with specific package versions. If the @ti webfont fails to load within
+// 1.5s, fall back to the unpkg mirror so icons never silently disappear.
+(function() {
+  function iconsLoaded() {
+    var test = document.createElement('i');
+    test.className = 'ti ti-home';
+    test.style.position = 'absolute';
+    test.style.visibility = 'hidden';
+    document.body && document.body.appendChild(test);
+    var ff = test.ownerDocument.defaultView.getComputedStyle(test).fontFamily || '';
+    var loaded = ff.indexOf('tabler') !== -1 || ff.indexOf('Tabler') !== -1;
+    if (test.parentNode) test.parentNode.removeChild(test);
+    return loaded;
+  }
+  window.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      if (!iconsLoaded()) {
+        var fallback = document.createElement('link');
+        fallback.rel = 'stylesheet';
+        fallback.href = 'https://unpkg.com/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css';
+        document.head.appendChild(fallback);
+      }
+    }, 1500);
+  });
+})();
+</script>
+<style>
+:root{
+  --bg:#FBF7F0;
+  --bg-page:#F6F0E6;
+  --surface:#FFFFFF;
+  --surface-alt:#F4ECE0;
+  --border:#E8DFD0;
+  --border-strong:#D9CBB3;
+  --text:#3D332A;
+  --text-soft:#6B5D4F;
+  --text-mute:#8A7A66;
+  --text-faint:#B5A893;
+  --accent:#C2603F;
+  --accent-soft:#D8AE8E;
+  --accent-bg:#FAECE7;
+  --accent-text:#8A3A22;
+  --good:#2F7A52;
+  --good-bg:#E5F0E8;
+  --good-text:#1F5E3C;
+  --bad:#A32D2D;
+  --bad-bg:#FCEBEB;
+  --bad-text:#791F1F;
+  --warn-bg:#FAEEDA;
+  --warn-text:#854F0B;
+  --radius-sm:8px;
+  --radius-md:10px;
+  --radius-lg:14px;
+  --font-ui:'IBM Plex Sans Thai',system-ui,sans-serif;
+  --font-num:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  background:var(--bg-page);
+  color:var(--text);
+  font-family:var(--font-ui);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+body{
+  padding-bottom:2.5rem;
+}
+button{font-family:inherit;border:none;background:none;cursor:pointer;}
+.num{font-family:var(--font-num);}
+
+/* ===== App shell ===== */
+.app-header{
+  position:sticky;top:0;z-index:30;
+  background:rgba(251,247,240,0.92);
+  backdrop-filter:blur(8px);
+  border-bottom:0.5px solid var(--border);
+  padding:10px 16px;
+}
+.app-header-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.app-title{display:flex;align-items:center;gap:9px;min-width:0;}
+.app-title .logo-mark{
+  width:30px;height:30px;border-radius:8px;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.app-title .logo-mark i{color:#FFF7F0;font-size:16px;}
+.app-title-text{min-width:0;}
+.app-title-text h1{
+  font-size:14px;font-weight:600;color:var(--text);line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.app-title-text p{
+  font-size:11px;color:var(--text-mute);line-height:1.2;margin-top:1px;
+}
+.refresh-zone{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.refresh-status{
+  font-size:10.5px;color:var(--text-mute);text-align:right;line-height:1.3;
+  display:none;
+}
+.refresh-status .dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--good);margin-right:4px;
+}
+.refresh-status .dot.historical{background:var(--text-faint);}
+.refresh-btn{
+  width:32px;height:32px;border-radius:50%;
+  border:0.5px solid var(--border-strong);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-soft);transition:transform .25s ease,background .15s ease;
+  flex-shrink:0;
+}
+.refresh-btn:active{transform:scale(0.92);}
+.refresh-btn.spinning i{animation:spin 0.8s linear infinite;}
+.refresh-btn:hover{background:var(--surface);}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ===== Tabs (horizontal scroll) ===== */
+.tab-scroll{
+  display:flex;gap:6px;overflow-x:auto;padding:10px 16px 0;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.tab-scroll::-webkit-scrollbar{display:none;}
+.tab-btn{
+  flex-shrink:0;font-size:13px;font-weight:500;color:var(--text-soft);
+  padding:8px 16px;border-radius:9px;white-space:nowrap;
+  display:flex;align-items:center;gap:6px;
+  transition:background .15s ease,color .15s ease;
+}
+.tab-btn i{font-size:16px;}
+.tab-btn.active{background:var(--accent);color:#FFF7F0;}
+.tab-btn:not(.active):hover{background:var(--surface-alt);}
+
+/* ===== Main content ===== */
+.view{display:none;padding:16px;max-width:920px;margin:0 auto;}
+.view.active{display:block;}
+
+/* ===== Period toggle ===== */
+.period-row{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin-bottom:14px;flex-wrap:wrap;
+}
+.period-toggle{
+  display:flex;gap:3px;background:var(--surface-alt);
+  border-radius:9px;padding:3px;
+}
+.period-btn{
+  font-size:12.5px;font-weight:500;color:var(--text-soft);
+  padding:6px 13px;border-radius:7px;transition:background .15s ease,color .15s ease;
+}
+.period-btn.active{background:var(--text);color:var(--bg);}
+.period-label{
+  font-size:12px;color:var(--text-mute);
+  display:flex;align-items:center;gap:5px;
+}
+
+/* ===== Date navigator ===== */
+.date-nav{
+  display:flex;align-items:center;gap:4px;
+}
+.date-nav-btn{
+  width:28px;height:28px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-soft);border:0.5px solid var(--border-strong);
+  flex-shrink:0;transition:background .15s ease;
+}
+.date-nav-btn:hover{background:var(--surface-alt);}
+.date-nav-btn:disabled{opacity:0.35;pointer-events:none;}
+.date-nav-btn i{font-size:14px;}
+.date-nav-label{
+  font-size:12px;color:var(--text);font-weight:500;
+  display:flex;align-items:center;gap:5px;padding:0 6px;
+  cursor:pointer;border-radius:7px;white-space:nowrap;
+  position:relative;
+}
+.date-nav-label:hover{background:var(--surface-alt);}
+.date-nav-label i{font-size:14px;color:var(--accent);}
+.date-nav-hidden-input{
+  position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;
+}
+.today-btn{
+  font-size:11px;font-weight:500;color:var(--accent-text);
+  background:var(--accent-bg);padding:5px 10px;border-radius:7px;
+  display:flex;align-items:center;gap:4px;flex-shrink:0;
+}
+.today-btn i{font-size:12px;}
+
+/* ===== Cards ===== */
+.card{
+  background:var(--surface);border:0.5px solid var(--border);
+  border-radius:var(--radius-md);padding:14px;
+}
+.section{
+  background:var(--bg);border:0.5px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px;margin-bottom:18px;
+}
+.section-title{
+  font-size:12.5px;font-weight:600;color:var(--text-soft);
+  margin-bottom:11px;display:flex;align-items:center;gap:6px;
+}
+.section-title i{font-size:15px;color:var(--accent);}
+
+/* ===== KPI grid ===== */
+.kpi-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:9px;
+}
+@media (min-width:640px){
+  .kpi-grid{grid-template-columns:repeat(4,1fr);}
+}
+.kpi-card{
+  background:var(--surface);border:0.5px solid var(--border);
+  border-radius:var(--radius-md);padding:13px;min-width:0;
+}
+.kpi-icon-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
+.kpi-icon-row i{font-size:14px;color:var(--text-mute);}
+.kpi-label{font-size:11px;color:var(--text-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kpi-value-row{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;}
+.kpi-value{font-size:19px;font-weight:600;color:var(--text);line-height:1.1;}
+.kpi-value.faint{color:var(--text-faint);font-weight:500;}
+.kpi-unit{font-size:11px;color:var(--text-mute);}
+.kpi-sub{font-size:10.5px;color:var(--text-mute);margin-top:5px;}
+.kpi-change{
+  font-size:10.5px;font-weight:500;margin-top:5px;
+  display:inline-flex;align-items:center;gap:3px;
+}
+.kpi-change i{font-size:11px;}
+.kpi-change.up{color:var(--good);}
+.kpi-change.down{color:var(--bad);}
+.kpi-change.flat{color:var(--text-mute);}
+
+/* ===== Bars / charts ===== */
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:64px;}
+.bar-pair{flex:1;display:flex;align-items:flex-end;gap:2px;height:100%;}
+.bar{flex:1;border-radius:3px 3px 0 0;min-height:2px;transition:height .3s ease;}
+.bar.prev{background:var(--surface-alt);}
+.bar.cur{background:var(--accent);}
+.chart-legend{display:flex;gap:14px;margin-top:9px;font-size:10.5px;color:var(--text-mute);}
+.chart-legend .swatch{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px;}
+
+/* ===== Tables ===== */
+.table-wrap{
+  background:var(--surface);border:0.5px solid var(--border);
+  border-radius:var(--radius-md);overflow:hidden;
+}
+table{width:100%;border-collapse:collapse;}
+th{
+  background:var(--surface-alt);color:var(--text-soft);font-size:10.5px;
+  text-align:left;padding:8px 10px;font-weight:600;letter-spacing:.01em;
+  white-space:nowrap;
+}
+td{
+  font-size:12.5px;color:var(--text);padding:8px 10px;
+  border-top:0.5px solid var(--border);white-space:nowrap;
+}
+.text-right{text-align:right;}
+.text-faint{color:var(--text-faint);}
+
+/* ===== Badges / banners ===== */
+.banner{
+  display:flex;align-items:flex-start;gap:8px;padding:10px 12px;
+  border-radius:var(--radius-sm);font-size:12px;margin-bottom:12px;
+}
+.banner i{font-size:15px;flex-shrink:0;margin-top:1px;}
+.banner.warn{background:var(--warn-bg);color:var(--warn-text);}
+.banner.bad{background:var(--bad-bg);color:var(--bad-text);}
+
+/* ===== Flow strip (signature element) ===== */
+.flow-strip{
+  display:flex;align-items:center;gap:0;margin-bottom:16px;
+  background:var(--surface);border:0.5px solid var(--border);
+  border-radius:var(--radius-lg);padding:14px 16px;overflow:hidden;
+}
+.flow-node{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+.flow-node .flow-dot{
+  width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--border-strong);background:var(--bg);
+}
+.flow-node .flow-dot i{font-size:16px;color:var(--text-soft);}
+.flow-node.active .flow-dot{border-color:var(--accent);background:var(--accent-bg);}
+.flow-node.active .flow-dot i{color:var(--accent-text);}
+.flow-node span.flow-label{font-size:9.5px;color:var(--text-mute);white-space:nowrap;}
+.flow-line{flex:1;height:1.5px;background:var(--border-strong);margin:0 4px;position:relative;top:-13px;min-width:16px;}
+
+/* ===== Gauge ===== */
+.gauge-wrap{position:relative;width:130px;height:68px;margin:0 auto;}
+.gauge-value{
+  position:absolute;bottom:0;left:0;right:0;text-align:center;
+  font-size:19px;font-weight:600;color:var(--text);font-family:var(--font-num);
+}
+
+/* ===== Chart containers ===== */
+.chart-box{position:relative;width:100%;}
+.chart-box.h-160{height:160px;}
+.chart-box.h-140{height:140px;}
+.chart-box.h-110{height:110px;}
+
+/* ===== Calendar heatmap ===== */
+.heatmap-grid{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
+}
+.heatmap-cell{
+  aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;
+  font-size:9.5px;font-weight:500;color:var(--text-faint);background:var(--surface-alt);
+  position:relative;cursor:default;
+}
+.heatmap-cell.has-data{color:transparent;}
+.heatmap-legend{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:var(--text-mute);}
+.heatmap-legend-scale{display:flex;gap:2px;}
+.heatmap-legend-scale span{width:13px;height:13px;border-radius:3px;}
+.heatmap-strip{display:flex;gap:3px;}
+.heatmap-strip-cell{flex:1;aspect-ratio:1;border-radius:4px;min-width:0;}
+
+/* ===== HC progress bars ===== */
+.hc-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.hc-row:last-child{margin-bottom:0;}
+.hc-label{font-size:11.5px;color:var(--text-soft);width:74px;flex-shrink:0;white-space:nowrap;}
+.hc-bar-track{flex:1;height:8px;border-radius:4px;background:var(--surface-alt);overflow:hidden;}
+.hc-bar-fill{height:100%;border-radius:4px;background:var(--accent);transition:width .3s ease;}
+.hc-bar-fill.under{background:var(--bad);}
+.hc-value{font-size:11.5px;color:var(--text);width:64px;flex-shrink:0;text-align:right;}
+
+/* ===== Loading / skeleton ===== */
+.skel{
+  background:linear-gradient(90deg,var(--surface-alt) 25%,var(--border) 37%,var(--surface-alt) 63%);
+  background-size:400% 100%;animation:skel-shine 1.4s ease infinite;
+  border-radius:6px;
+}
+@keyframes skel-shine{0%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+.skel-text{height:13px;width:60%;}
+.skel-value{height:20px;width:70%;margin-top:4px;}
+
+.toast{
+  position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(8px);
+  background:var(--text);color:var(--bg);font-size:12.5px;font-weight:500;
+  padding:9px 18px;border-radius:99px;opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;z-index:50;
+  display:flex;align-items:center;gap:7px;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast i{font-size:14px;}
+
+/* ===== Summary share modal ===== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(61,51,42,0.45);
+  display:none;align-items:center;justify-content:center;z-index:60;
+  padding:20px;
+}
+.modal-overlay.show{display:flex;}
+.modal-card{
+  background:var(--surface);border-radius:16px;max-width:420px;width:100%;
+  max-height:85vh;display:flex;flex-direction:column;overflow:hidden;
+}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 18px 12px;border-bottom:0.5px solid var(--border);flex-shrink:0;
+}
+.modal-header h3{font-size:14px;font-weight:600;color:var(--text);}
+.modal-close{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  color:var(--text-mute);flex-shrink:0;
+}
+.modal-close:hover{background:var(--surface-alt);}
+.modal-body{padding:16px 18px;overflow-y:auto;flex:1;}
+.summary-preview{
+  background:var(--bg);border:0.5px solid var(--border);border-radius:10px;
+  padding:14px;font-size:12.5px;line-height:1.65;color:var(--text);
+  white-space:pre-wrap;font-family:var(--font-ui);
+}
+.modal-footer{
+  padding:12px 18px 16px;border-top:0.5px solid var(--border);flex-shrink:0;
+  display:flex;gap:8px;
+}
+.modal-footer button{
+  flex:1;font-size:13px;font-weight:500;padding:10px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn-secondary{border:0.5px solid var(--border-strong);color:var(--text-soft);}
+.btn-secondary:hover{background:var(--surface-alt);}
+.btn-primary{background:var(--accent);color:#FFF7F0;}
+.btn-primary:hover{opacity:0.92;}
+.btn-primary.copied{background:var(--good);}
+
+@media (prefers-reduced-motion:reduce){
+  .refresh-btn.spinning i{animation:none;}
+  .skel{animation:none;}
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" id="chartJsScript"></script>
+<script>
+// Chart.js reliability check: if the primary CDN failed (network issue,
+// wrong version, blocked request), fall back to jsdelivr so charts never
+// silently disappear with no error shown to the person using the dashboard.
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    if (typeof Chart === 'undefined') {
+      var fallback = document.createElement('script');
+      fallback.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+      fallback.onload = function() {
+        if (typeof window._chartFallbackLoaded === 'function') window._chartFallbackLoaded();
+      };
+      document.head.appendChild(fallback);
+    }
+  }, 1200);
+});
+</script>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header-row">
+    <div class="app-title">
+      <div class="logo-mark"><i class="ti ti-building-warehouse"></i></div>
+      <div class="app-title-text">
+        <h1>DC7171 ลำพูน</h1>
+        <p>Daily Operation Dashboard</p>
+      </div>
+    </div>
+    <div class="refresh-zone">
+      <div class="refresh-status" id="refreshStatus">
+        <span class="dot"></span><span id="refreshTime">—</span>
+      </div>
+      <button class="refresh-btn" id="shareBtn" aria-label="สรุปส่ง LINE">
+        <i class="ti ti-share"></i>
+      </button>
+      <button class="refresh-btn" id="refreshBtn" aria-label="รีเฟรชข้อมูล">
+        <i class="ti ti-refresh"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+<nav class="tab-scroll" id="tabNav">
+  <button class="tab-btn active" data-view="overview"><i class="ti ti-layout-dashboard"></i>Overview</button>
+  <button class="tab-btn" data-view="inbound"><i class="ti ti-truck-loading"></i>Inbound</button>
+  <button class="tab-btn" data-view="sto"><i class="ti ti-arrows-exchange"></i>Outbound STO</button>
+  <button class="tab-btn" data-view="so"><i class="ti ti-truck-delivery"></i>Outbound SO</button>
+  <button class="tab-btn" data-view="stock"><i class="ti ti-building-warehouse"></i>Stock</button>
+</nav>
+
+<main id="mainContent">
+</main>
+
+<div class="toast" id="toast"><i class="ti ti-check"></i><span id="toastText"></span></div>
+
+<div class="modal-overlay" id="summaryModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>สรุปส่ง LINE</h3>
+      <button class="modal-close" id="summaryModalClose" aria-label="ปิด"><i class="ti ti-x" style="font-size:16px;"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="summary-preview" id="summaryPreviewText"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="summaryCancelBtn">ปิด</button>
+      <button class="btn-primary" id="summaryCopyBtn"><i class="ti ti-copy" style="font-size:15px;"></i>คัดลอก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbyhVfWi-sqNgDCGAWqRt-qTLh4hHhTi4LP6ybOT5zAJlA9QVRwDCEH80dV_eS28_opY/exec',
+  AUTO_REFRESH_MS: 5 * 60 * 1000,
+  TIMEZONE: 'Asia/Bangkok'
+};
+
+/* ============== JSONP fetcher ============== */
+let _jsonpCounter = 0;
+function jsonp(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = '__dc7171_cb_' + (_jsonpCounter++);
+    const script = document.createElement('script');
+    const qs = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('timeout'));
+    }, 15000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error('network error')); };
+    script.src = CONFIG.API_URL + '?' + qs + '&callback=' + cbName;
+    document.body.appendChild(script);
+  });
+}
+
+function fetchData(action, period, dateStr) {
+  return jsonp({ action, period, date: dateStr }).catch(err => {
+    console.error('fetchData failed:', action, err);
+    return { error: err.message };
+  });
+}
+
+/* ============== App state ============== */
+const state = {
+  view: 'overview',
+  period: 'daily',
+  date: todayStr(),
+  cache: {},
+  loading: false
+};
+
+function todayStr() {
+  const now = new Date();
+  const tzNow = new Date(now.toLocaleString('en-US', { timeZone: CONFIG.TIMEZONE }));
+  const y = tzNow.getFullYear();
+  const m = String(tzNow.getMonth() + 1).padStart(2, '0');
+  const d = String(tzNow.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function cacheKey(view, period, date) { return `${view}:${period}:${date}`; }
+
+const ACTION_MAP = { overview: 'overview', inbound: 'inbound', sto: 'outboundSTO', so: 'outboundSO', stock: 'stock' };
+
+/* ============== Number formatting ============== */
+function fmtNum(n, opts) {
+  opts = opts || {};
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const rounded = opts.decimals ? Number(n).toFixed(opts.decimals) : Math.round(n);
+  return Number(rounded).toLocaleString('en-US', { minimumFractionDigits: opts.decimals || 0, maximumFractionDigits: opts.decimals || 0 });
+}
+
+function fmtChange(change) {
+  if (change === null || change === undefined) {
+    return { cls: 'flat', icon: 'ti-minus', text: '—' };
+  }
+  if (change > 0.05) return { cls: 'up', icon: 'ti-arrow-up', text: `+${change.toFixed(1)}%` };
+  if (change < -0.05) return { cls: 'down', icon: 'ti-arrow-down', text: `${change.toFixed(1)}%` };
+  return { cls: 'flat', icon: 'ti-minus', text: '0.0%' };
+}
+
+function changeCompareLabel(period) {
+  if (period === 'daily') return 'เทียบเมื่อวาน';
+  if (period === 'weekly') return 'เทียบสัปดาห์ก่อน';
+  return 'เทียบเดือนก่อน';
+}
+
+function kpiChangeHtml(change, period) {
+  const c = fmtChange(change);
+  return `<div class="kpi-change ${c.cls}"><i class="ti ${c.icon}"></i>${c.text} <span style="color:var(--text-faint);">${changeCompareLabel(period)}</span></div>`;
+}
+
+function periodDateLabel(period, label) {
+  if (!label) return '';
+  if (period === 'monthly') return label;
+  if (period === 'weekly') {
+    const [a, , b] = label.split(' ');
+    return `${fmtThaiDate(a)} – ${fmtThaiDate(b)}`;
+  }
+  return fmtThaiDate(label);
+}
+
+const THAI_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function fmtThaiDate(isoStr) {
+  if (!isoStr) return '';
+  const [y, m, d] = isoStr.split('-').map(Number);
+  return `${d} ${THAI_MONTHS[m - 1]} ${y}`;
+}
+
+/* ============== Date navigation ============== */
+function shiftDate(dateStr, period, dir) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  let date;
+
+  if (period === 'monthly') {
+    // Avoid JS Date overflow (e.g. Jan 31 + 1 month must land on Feb 28, not Mar 3):
+    // build the target month first, then clamp the day to that month's last day.
+    const targetMonthDate = new Date(y, m - 1 + dir, 1);
+    const lastDayOfTargetMonth = new Date(targetMonthDate.getFullYear(), targetMonthDate.getMonth() + 1, 0).getDate();
+    const clampedDay = Math.min(d, lastDayOfTargetMonth);
+    date = new Date(targetMonthDate.getFullYear(), targetMonthDate.getMonth(), clampedDay);
+  } else {
+    date = new Date(y, m - 1, d);
+    if (period === 'daily') date.setDate(date.getDate() + dir);
+    else if (period === 'weekly') date.setDate(date.getDate() + dir * 7);
+  }
+
+  const ny = date.getFullYear();
+  const nm = String(date.getMonth() + 1).padStart(2, '0');
+  const nd = String(date.getDate()).padStart(2, '0');
+  let result = `${ny}-${nm}-${nd}`;
+  const min = '2026-01-01', max = todayStr();
+  if (result < min) result = min;
+  if (result > max) result = max;
+  return result;
+}
+
+/* ============== Skeleton loader ============== */
+function skeletonKpis(count) {
+  let html = '<div class="kpi-grid">';
+  for (let i = 0; i < count; i++) {
+    html += `<div class="kpi-card"><div class="skel skel-text"></div><div class="skel skel-value"></div></div>`;
+  }
+  return html + '</div>';
+}
+
+/* ============== Shared sub-templates ============== */
+function periodToggleHtml(label) {
+  const isToday = state.date === todayStr();
+  return `
+  <div class="period-row">
+    <div class="period-toggle">
+      <button class="period-btn ${state.period === 'daily' ? 'active' : ''}" data-period="daily">รายวัน</button>
+      <button class="period-btn ${state.period === 'weekly' ? 'active' : ''}" data-period="weekly">รายสัปดาห์</button>
+      <button class="period-btn ${state.period === 'monthly' ? 'active' : ''}" data-period="monthly">รายเดือน</button>
+    </div>
+    ${!isToday ? `<button class="today-btn" id="todayBtn"><i class="ti ti-calendar-event"></i>วันนี้</button>` : ''}
+  </div>
+  <div class="period-row" style="margin-top:-4px;">
+    <div class="date-nav">
+      <button class="date-nav-btn" id="datePrevBtn" aria-label="ช่วงก่อนหน้า"><i class="ti ti-chevron-left"></i></button>
+      <label class="date-nav-label">
+        <i class="ti ti-calendar"></i>${label ? periodDateLabel(state.period, label) : ''}
+        <input type="date" class="date-nav-hidden-input" id="datePickerInput" value="${state.date}" max="${todayStr()}" min="2026-01-01">
+      </label>
+      <button class="date-nav-btn" id="dateNextBtn" aria-label="ช่วงถัดไป" ${isToday ? 'disabled' : ''}><i class="ti ti-chevron-right"></i></button>
+    </div>
+  </div>`;
+}
+
+function dataGapBanner(completeness) {
+  if (!completeness) return '';
+  const { daysExpected, daysWithData } = completeness;
+  if (daysExpected > 0 && daysWithData < daysExpected) {
+    return `<div class="banner warn"><i class="ti ti-alert-triangle"></i><span>ข้อมูลกรอกแล้ว ${daysWithData} จาก ${daysExpected} วัน — ตัวเลขรวมอาจยังไม่ครบช่วงเวลานี้</span></div>`;
+  }
+  return '';
+}
+
+function pairBarChart(curArr, prevArr, curColor, prevColor) {
+  const max = Math.max(...curArr, ...prevArr, 1);
+  let html = '<div class="bar-chart">';
+  for (let i = 0; i < curArr.length; i++) {
+    const ph = Math.max(2, (prevArr[i] / max) * 100);
+    const ch = Math.max(2, (curArr[i] / max) * 100);
+    html += `<div class="bar-pair">
+      <div class="bar prev" style="height:${ph}%"></div>
+      <div class="bar cur" style="height:${ch}%;background:${curColor || 'var(--accent)'}"></div>
+    </div>`;
+  }
+  return html + '</div>';
+}
+
+/* ============== Chart.js integration ============== */
+// Tracks live Chart.js instances by canvas id so re-renders destroy the old
+// chart before creating a new one — otherwise Chart.js leaks canvases and
+// memory grows every time the person switches tabs or periods.
+const _chartRegistry = {};
+
+function destroyChart(canvasId) {
+  if (_chartRegistry[canvasId]) {
+    _chartRegistry[canvasId].destroy();
+    delete _chartRegistry[canvasId];
+  }
+}
+
+function resolveCssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || name;
+}
+
+function shortThaiDate(isoStr) {
+  const [, m, d] = isoStr.split('-').map(Number);
+  return `${d}/${m}`;
+}
+
+// One reusable line/bar chart: pass `datasets` already shaped for Chart.js.
+// Call AFTER the canvas exists in the DOM (i.e. after innerHTML is set).
+// Pending chart calls queued up if Chart.js hasn't loaded yet — retried
+// automatically once the fallback CDN script (see <head>) finishes loading,
+// so charts recover instead of staying blank with no visible error.
+const _pendingChartCalls = [];
+window._chartFallbackLoaded = function() {
+  const calls = _pendingChartCalls.slice();
+  _pendingChartCalls.length = 0;
+  calls.forEach(fn => fn());
+};
+
+function renderTrendChart(canvasId, labels, datasets, opts) {
+  opts = opts || {};
+  if (typeof Chart === 'undefined') {
+    _pendingChartCalls.push(() => renderTrendChart(canvasId, labels, datasets, opts));
+    return;
+  }
+  destroyChart(canvasId);
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  _chartRegistry[canvasId] = new Chart(ctx, {
+    type: opts.type || 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: datasets.length > 1,
+          position: 'bottom',
+          labels: { boxWidth: 8, boxHeight: 8, font: { size: 10.5, family: "'IBM Plex Sans Thai'" }, color: resolveCssVar('--text-mute'), padding: 10 }
+        },
+        tooltip: {
+          backgroundColor: resolveCssVar('--text'),
+          titleColor: resolveCssVar('--bg'),
+          bodyColor: resolveCssVar('--bg'),
+          padding: 8, cornerRadius: 6, titleFont: { size: 11 }, bodyFont: { size: 11 }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9.5 }, color: resolveCssVar('--text-mute'), maxRotation: 0 } },
+        y: {
+          beginAtZero: true,
+          grid: { color: resolveCssVar('--border') },
+          ticks: { font: { size: 9.5 }, color: resolveCssVar('--text-mute'), maxTicksLimit: 5 }
+        }
+      }
+    }
+  });
+}
+
+function lineDataset(label, data, color, opts) {
+  opts = opts || {};
+  return {
+    label, data, borderColor: color, backgroundColor: color + '22',
+    borderWidth: 2, pointRadius: opts.points === false ? 0 : 2, pointHoverRadius: 4,
+    tension: 0.3, fill: opts.fill || false, borderDash: opts.dashed ? [5, 4] : undefined,
+    spanGaps: true
+  };
+}
+
+function barDataset(label, data, color) {
+  return { label, data, backgroundColor: color, borderRadius: 4, maxBarThickness: 28 };
+}
+
+// Calendar heatmap: one cell per day, colored by intensity (0-100 scale).
+// Cells with null value render as a faint empty square (no data that day).
+function calendarHeatmap(heatmapData, opts) {
+  opts = opts || {};
+  const firstDate = heatmapData[0] ? heatmapData[0].date : null;
+  if (!firstDate) return '<p style="font-size:12px;color:var(--text-mute);">ไม่มีข้อมูล</p>';
+
+  const [y, m] = firstDate.split('-').map(Number);
+  const firstDow = (new Date(y, m - 1, 1).getDay() + 6) % 7; // 0=Mon
+
+  const colorFor = (pct) => {
+    if (pct === null) return null;
+    if (pct < 50) return 'c-teal-100';
+    if (pct < 70) return 'c-teal-200';
+    if (pct < 85) return 'c-coral-200';
+    if (pct < 95) return 'c-coral-400';
+    return 'c-coral-600';
+  };
+  const bgFor = (pct) => {
+    if (pct === null) return null;
+    if (pct < 50) return '#9FE1CB';
+    if (pct < 70) return '#5DCAA5';
+    if (pct < 85) return '#F0997B';
+    if (pct < 95) return '#D85A30';
+    return '#993C1D';
+  };
+  const textFor = (pct) => (pct !== null && pct >= 85) ? '#FFF7F0' : '#3D332A';
+
+  const dowLabels = ['จ','อ','พ','พฤ','ศ','ส','อา'];
+  let html = '<div class="heatmap-grid">';
+  dowLabels.forEach(d => {
+    html += `<div style="font-size:9.5px;color:var(--text-faint);text-align:center;">${d}</div>`;
+  });
+  for (let i = 0; i < firstDow; i++) html += '<div></div>';
+
+  heatmapData.forEach(day => {
+    const dayNum = parseInt(day.date.split('-')[2], 10);
+    const bg = bgFor(day.utilizationPct);
+    const style = bg ? `background:${bg};color:${textFor(day.utilizationPct)};` : '';
+    const title = day.utilizationPct !== null ? `${day.date}: ${day.utilizationPct}%` : `${day.date}: ไม่มีข้อมูล`;
+    html += `<div class="heatmap-cell" style="${style}" title="${title}">${dayNum}</div>`;
+  });
+  html += '</div>';
+
+  html += `<div class="heatmap-legend">
+    <span>ว่าง</span>
+    <div class="heatmap-legend-scale">
+      <span style="background:#9FE1CB;"></span><span style="background:#5DCAA5;"></span>
+      <span style="background:#F0997B;"></span><span style="background:#D85A30;"></span><span style="background:#993C1D;"></span>
+    </div>
+    <span>แน่น</span>
+  </div>`;
+  return html;
+}
+
+// Compact single-row heatmap strip (used in the Overview capture summary) —
+// last N days only, no day-of-week grid, just a quick-glance density bar.
+function heatmapStrip(heatmapData) {
+  const bgFor = (pct) => {
+    if (pct === null) return 'var(--surface-alt)';
+    if (pct < 50) return '#9FE1CB';
+    if (pct < 70) return '#5DCAA5';
+    if (pct < 85) return '#F0997B';
+    if (pct < 95) return '#D85A30';
+    return '#993C1D';
+  };
+  let html = '<div class="heatmap-strip">';
+  heatmapData.forEach(day => {
+    const title = day.utilizationPct !== null ? `${day.date}: ${day.utilizationPct}%` : `${day.date}: ไม่มีข้อมูล`;
+    html += `<div class="heatmap-strip-cell" style="background:${bgFor(day.utilizationPct)};" title="${title}"></div>`;
+  });
+  return html + '</div>';
+}
+
+/* ============== VIEW: Overview ============== */
+function renderOverviewSkeleton() {
+  return `
+  ${periodToggleHtml()}
+  <div class="flow-strip">
+    ${flowNode('ti-truck-loading', 'Inbound', true)}
+    ${flowLine()}
+    ${flowNode('ti-building-warehouse', 'Stock', true)}
+    ${flowLine()}
+    ${flowNode('ti-truck-delivery', 'Outbound', true)}
+  </div>
+  ${skeletonKpis(4)}
+  <div class="card"><div class="skel skel-text" style="width:40%;margin-bottom:10px;"></div><div class="skel" style="height:60px;"></div></div>`;
+}
+
+function flowNode(icon, label, active) {
+  return `<div class="flow-node ${active ? 'active' : ''}"><div class="flow-dot"><i class="ti ${icon}"></i></div><span class="flow-label">${label}</span></div>`;
+}
+function flowLine() { return '<div class="flow-line"></div>'; }
+
+function renderOverview(data) {
+  if (data.error) return errorBlock(data.error);
+  const util = data.stock ? data.stock.utilizationPct : null;
+  const hc = data.headcount;
+  const hcPct = (hc && hc.planTotal) ? Math.min(100, Math.round((hc.actTotal / hc.planTotal) * 100)) : null;
+
+  const deptRow = (label, dept) => {
+    const pct = dept.plan ? Math.min(100, Math.round((dept.act || 0) / dept.plan * 100)) : 0;
+    const under = dept.plan && (dept.act || 0) < dept.plan;
+    return `
+    <div class="hc-row">
+      <span class="hc-label">${label}</span>
+      <div class="hc-bar-track"><div class="hc-bar-fill ${under ? 'under' : ''}" style="width:${pct}%;"></div></div>
+      <span class="hc-value num">${dept.act !== null ? fmtNum(dept.act) : '—'} / ${fmtNum(dept.plan)}</span>
+    </div>`;
+  };
+
+  return `
+  ${periodToggleHtml(data.label)}
+
+  <div id="overviewCaptureCard" style="background:var(--bg);border:0.5px solid var(--border);border-radius:16px;padding:18px;">
+    <div class="flow-strip" style="margin-bottom:14px;">
+      ${flowNode('ti-truck-loading', 'Inbound', data.inboundTotal.value > 0)}
+      ${flowLine()}
+      ${flowNode('ti-building-warehouse', 'Stock', true)}
+      ${flowLine()}
+      ${flowNode('ti-truck-delivery', 'Outbound', data.soTotal.value > 0 || data.stoTotal.value > 0)}
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon-row"><i class="ti ti-truck-loading"></i><span class="kpi-label">Inbound</span></div>
+        <div class="kpi-value-row"><span class="kpi-value num ${data.inboundTotal.value === 0 ? 'faint' : ''}">${fmtNum(data.inboundTotal.value)}</span><span class="kpi-unit">cases</span></div>
+        ${kpiChangeHtml(data.inboundTotal.change, state.period)}
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon-row"><i class="ti ti-arrows-exchange"></i><span class="kpi-label">Outbound STO</span></div>
+        <div class="kpi-value-row"><span class="kpi-value num ${data.stoTotal.value === 0 ? 'faint' : ''}">${fmtNum(data.stoTotal.value)}</span><span class="kpi-unit">cases</span></div>
+        ${kpiChangeHtml(data.stoTotal.change, state.period)}
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon-row"><i class="ti ti-truck-delivery"></i><span class="kpi-label">Outbound SO</span></div>
+        <div class="kpi-value-row"><span class="kpi-value num">${fmtNum(data.soTotal.value)}</span><span class="kpi-unit">cases</span></div>
+        ${kpiChangeHtml(data.soTotal.change, state.period)}
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon-row"><i class="ti ti-coin"></i><span class="kpi-label">ค่าแรงรวม</span></div>
+        <div class="kpi-value-row"><span class="kpi-value num">${fmtNum(data.laborCostGrandTotal)}</span><span class="kpi-unit">บาท</span></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:9px;">
+      <div class="card">
+        <p style="font-size:12px;color:var(--text-mute);margin-bottom:8px;"><i class="ti ti-package" style="font-size:13px;margin-right:4px;"></i>Stock utilization</p>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div class="gauge-wrap" style="width:96px;height:50px;">
+            <svg viewBox="0 0 130 68" style="width:100%;">
+              <path d="M8,64 A57,57 0 0 1 122,64" fill="none" stroke="var(--surface-alt)" stroke-width="11"/>
+              <path d="M8,64 A57,57 0 0 1 122,64" fill="none" stroke="var(--accent)" stroke-width="11" stroke-linecap="round"
+                stroke-dasharray="179.3" stroke-dashoffset="${util !== null ? 179.3 - (179.3 * util / 100) : 179.3}"/>
+            </svg>
+            <div class="gauge-value" style="font-size:15px;">${util !== null ? util + '%' : '—'}</div>
+          </div>
+          <div>
+            <p class="num" style="font-size:13px;font-weight:500;">${data.stock ? fmtNum(data.stock.stockCases) : '—'}</p>
+            <p style="font-size:10.5px;color:var(--text-mute);">/ ${data.stock ? fmtNum(data.stock.maxCap) : '—'} cases</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <p style="font-size:12px;color:var(--text-mute);margin-bottom:8px;"><i class="ti ti-alert-triangle" style="font-size:13px;margin-right:4px;"></i>% GRB ช่วงนี้</p>
+        <p class="num" style="font-size:24px;font-weight:600;color:${data.grbPct > 0.5 ? 'var(--bad)' : 'var(--good)'};">${data.grbPct !== null ? data.grbPct + '%' : '—'}</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:9px;">
+      <p style="font-size:12px;color:var(--text-mute);margin-bottom:8px;"><i class="ti ti-calendar" style="font-size:13px;margin-right:4px;"></i>Stock 14 วันล่าสุด</p>
+      ${heatmapStrip(data.recentHeatmap)}
+    </div>
+
+    <div class="card" style="margin-top:9px;">
+      <p style="font-size:12px;color:var(--text-mute);margin-bottom:10px;"><i class="ti ti-users" style="font-size:13px;margin-right:4px;"></i>กำลังคน (Act / Plan)${hcPct !== null ? ` — รวม ${hcPct}%` : ''}</p>
+      ${deptRow('Inbound', hc.byDept.inbound)}
+      ${deptRow('Outbound STO', hc.byDept.sto)}
+      ${deptRow('Outbound SO', hc.byDept.so)}
+    </div>
+
+    <div class="card" style="margin-top:9px;">
+      <p style="font-size:12px;color:var(--text-mute);margin-bottom:8px;"><i class="ti ti-chart-line" style="font-size:13px;margin-right:4px;"></i>แนวโน้ม Outbound SO</p>
+      <div class="chart-box h-110"><canvas id="overviewSoTrendChart"></canvas></div>
+    </div>
+  </div>`;
+}
+
+function mountOverviewCharts(data) {
+  if (data.error || !data.soSeries) return;
+  const labels = data.soSeries.map(d => shortThaiDate(d.date));
+  renderTrendChart('overviewSoTrendChart', labels, [
+    lineDataset('Total SO', data.soSeries.map(d => d.totalSO), '#C2603F', { fill: true })
+  ]);
+}
+
+function errorBlock(msg) {
+  return `<div class="banner bad"><i class="ti ti-alert-circle"></i><span>โหลดข้อมูลไม่สำเร็จ: ${msg}. ลองกดรีเฟรชอีกครั้ง</span></div>`;
+}
+
+/* ============== VIEW: Inbound ============== */
+function renderInboundSkeleton() {
+  return `${periodToggleHtml()}${skeletonKpis(3)}<div class="card" style="margin-top:9px;"><div class="skel skel-text" style="width:50%;"></div></div>`;
+}
+
+function renderInbound(data) {
+  if (data.error) return errorBlock(data.error);
+  const b = data.breakdown;
+  const rows = [
+    ['โรงงาน 7151 ลำพูน', b.from7151],
+    ['DC 7174', b.from7174],
+    ['DC 7176', b.from7176],
+    ['DC 7177', b.from7177],
+    ['DC 7178', b.from7178]
+  ];
+  const total = b.from7151 + b.from7174 + b.from7176 + b.from7177 + b.from7178;
+
+  return `
+  ${periodToggleHtml(data.label)}
+  ${dataGapBanner(data.dataCompleteness)}
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-package-import"></i><span class="kpi-label">Act. รับเข้ารวม</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${data.actTotalReceive.value === 0 ? 'faint' : ''}">${fmtNum(data.actTotalReceive.value)}</span></div>
+      <div class="kpi-sub">Plan ${fmtNum(data.planReceive)} cases</div>
+      ${kpiChangeHtml(data.actTotalReceive.change, state.period)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-users"></i><span class="kpi-label">กำลังคน (Act)</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num">${fmtNum(data.actHC.value)}</span><span class="kpi-unit">/ ${fmtNum(data.planHC)} แผน</span></div>
+      ${kpiChangeHtml(data.actHC.change, state.period)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-gauge"></i><span class="kpi-label">Productivity</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${data.productivity === null ? 'faint' : ''}">${fmtNum(data.productivity)}</span><span class="kpi-unit">cases/MH</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-coin"></i>ค่าใช้จ่ายแรงงาน — Inbound</div>
+    <div class="kpi-value-row" style="margin-bottom:10px;"><span class="kpi-value num" style="font-size:22px;">${fmtNum(data.laborCostTotal.value)}</span><span class="kpi-unit">บาท</span></div>
+    ${kpiChangeHtml(data.laborCostTotal.change, state.period)}
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px;">
+      <div><p style="font-size:11px;color:var(--text-mute);">Plan OT รวม</p><p class="num" style="font-size:14px;font-weight:500;">${fmtNum(data.ot.planTotal)} บาท</p></div>
+      <div><p style="font-size:11px;color:var(--text-mute);">Act. OT (NIM+OS+ช่าง)</p><p class="num" style="font-size:14px;font-weight:500;">${fmtNum((data.ot.actNimOps||0)+(data.ot.actOsOps||0)+(data.ot.actTech||0))} บาท</p></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-chart-line"></i>แนวโน้ม Act. รับเข้า vs Plan</div>
+    <div class="chart-box h-140"><canvas id="inboundTrendChart"></canvas></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-users"></i>กำลังคน รายวัน (Act vs Plan)</div>
+    <div class="chart-box h-140"><canvas id="inboundHcChart"></canvas></div>
+  </div>
+
+  <div class="section-title" style="margin-top:2px;"><i class="ti ti-route"></i>รับเข้าแยกตามต้นทาง</div>
+  <div class="table-wrap">
+    <table>
+      <tr><th>คลังต้นทาง</th><th class="text-right">Cases</th><th class="text-right">สัดส่วน</th></tr>
+      ${rows.map(([name, val]) => `
+        <tr><td>${name}</td><td class="text-right num">${fmtNum(val)}</td>
+        <td class="text-right num ${total === 0 ? 'text-faint' : ''}">${total > 0 ? (val / total * 100).toFixed(1) + '%' : '—'}</td></tr>
+      `).join('')}
+    </table>
+  </div>`;
+}
+
+function mountInboundCharts(data) {
+  if (data.error || !data.series) return;
+  const labels = data.series.map(d => shortThaiDate(d.date));
+  renderTrendChart('inboundTrendChart', labels, [
+    lineDataset('Plan', data.series.map(d => d.planReceive), '#D8AE8E', { dashed: true, points: false }),
+    lineDataset('Actual', data.series.map(d => d.actTotal), '#C2603F', { fill: true })
+  ]);
+  renderTrendChart('inboundHcChart', labels, [
+    barDataset('Plan HC', data.series.map(d => d.planHC), '#EFE3D3'),
+    barDataset('Act HC', data.series.map(d => d.actHC), '#C2603F')
+  ], { type: 'bar' });
+}
+
+/* ============== VIEW: Outbound STO ============== */
+function renderSTOSkeleton() {
+  return `${periodToggleHtml()}${skeletonKpis(4)}<div class="card" style="margin-top:9px;"><div class="skel skel-text" style="width:50%;"></div></div>`;
+}
+
+function renderSTO(data) {
+  if (data.error) return errorBlock(data.error);
+  const d = data.dispatch;
+  const rows = [
+    ['DC 7174', d.to7174],
+    ['DC 7176', d.to7176],
+    ['DC 7177', d.to7177],
+    ['DC 7178', d.to7178]
+  ];
+
+  return `
+  ${periodToggleHtml(data.label)}
+  ${dataGapBanner(data.dataCompleteness)}
+  <div class="banner warn" style="margin-bottom:14px;">
+    <i class="ti ti-info-circle"></i><span>ระบบนี้แยกจาก Dock Scheduling System — ไม่เชื่อมข้อมูลกัน</span>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-arrows-exchange"></i><span class="kpi-label">Act. STO</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${data.actSTO.value === 0 ? 'faint' : ''}">${fmtNum(data.actSTO.value)}</span></div>
+      <div class="kpi-sub">Plan ${fmtNum(data.planSTO)} cases</div>
+      ${kpiChangeHtml(data.actSTO.change, state.period)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-truck"></i><span class="kpi-label">รถ (Act)</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${data.actTruck.value === 0 ? 'faint' : ''}">${fmtNum(data.actTruck.value)}</span><span class="kpi-unit">/ ${fmtNum(data.planTruck)}</span></div>
+      ${kpiChangeHtml(data.actTruck.change, state.period)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-users"></i><span class="kpi-label">กำลังคน (Act)</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num">${fmtNum(data.actHC.value)}</span><span class="kpi-unit">/ ${fmtNum(data.planHC)}</span></div>
+      ${kpiChangeHtml(data.actHC.change, state.period)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-gauge"></i><span class="kpi-label">Productivity</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${data.productivity === null ? 'faint' : ''}">${fmtNum(data.productivity)}</span><span class="kpi-unit">cases/MH</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-coin"></i>ค่าใช้จ่ายแรงงาน — Outbound STO</div>
+    <div class="kpi-value-row" style="margin-bottom:4px;"><span class="kpi-value num" style="font-size:22px;">${fmtNum(data.laborCostTotal.value)}</span><span class="kpi-unit">บาท</span></div>
+    ${kpiChangeHtml(data.laborCostTotal.change, state.period)}
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-chart-line"></i>แนวโน้ม Act. STO vs Plan</div>
+    <div class="chart-box h-140"><canvas id="stoTrendChart"></canvas></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-users"></i>กำลังคน รายวัน (Act vs Plan)</div>
+    <div class="chart-box h-140"><canvas id="stoHcChart"></canvas></div>
+  </div>
+
+  <div class="section-title"><i class="ti ti-route"></i>กระจาย Dispatch ไปปลายทาง</div>
+  <div class="table-wrap">
+    <table>
+      <tr><th>ปลายทาง</th><th class="text-right">Cases</th><th class="text-right">สัดส่วน</th></tr>
+      ${rows.map(([name, val]) => `
+        <tr><td>${name}</td><td class="text-right num">${fmtNum(val)}</td>
+        <td class="text-right num ${data.dispatch.total.value === 0 ? 'text-faint' : ''}">${data.dispatch.total.value > 0 ? (val / data.dispatch.total.value * 100).toFixed(1) + '%' : '—'}</td></tr>
+      `).join('')}
+      <tr style="font-weight:600;"><td>รวม Dispatch</td><td class="text-right num">${fmtNum(data.dispatch.total.value)}</td><td></td></tr>
+    </table>
+  </div>`;
+}
+
+function mountSTOCharts(data) {
+  if (data.error || !data.series) return;
+  const labels = data.series.map(d => shortThaiDate(d.date));
+  renderTrendChart('stoTrendChart', labels, [
+    lineDataset('Plan', data.series.map(d => d.planSTO), '#D8AE8E', { dashed: true, points: false }),
+    lineDataset('Actual', data.series.map(d => d.actSTO), '#C2603F', { fill: true })
+  ]);
+  renderTrendChart('stoHcChart', labels, [
+    barDataset('Plan HC', data.series.map(d => d.planHC), '#EFE3D3'),
+    barDataset('Act HC', data.series.map(d => d.actHC), '#C2603F')
+  ], { type: 'bar' });
+}
+
+/* ============== VIEW: Outbound SO ============== */
+function renderSOSkeleton() {
+  return `${periodToggleHtml()}${skeletonKpis(4)}<div class="card" style="margin-top:9px;"><div class="skel" style="height:30px;"></div></div>`;
+}
+
+function renderSO(data) {
+  if (data.error) return errorBlock(data.error);
+  const ch = data.channelBreakdown;
+  const chTotal = ch.mt + ch.tt + ch.export;
+  const mtPct = chTotal > 0 ? (ch.mt / chTotal * 100) : 0;
+  const ttPct = chTotal > 0 ? (ch.tt / chTotal * 100) : 0;
+  const exPct = chTotal > 0 ? (ch.export / chTotal * 100) : 0;
+  const grb = data.grb;
+  const grbColor = grb.pct > 0.5 ? 'var(--bad)' : 'var(--good)';
+
+  return `
+  ${periodToggleHtml(data.label)}
+  ${dataGapBanner(data.dataCompleteness)}
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-truck-delivery"></i><span class="kpi-label">Total SO</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num">${fmtNum(data.totalSO.value)}</span></div>
+      <div class="kpi-sub">Plan ${fmtNum(data.planSO)} cases</div>
+      ${kpiChangeHtml(data.totalSO.change, state.period)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-users"></i><span class="kpi-label">กำลังคน (Act)</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num">${fmtNum(data.actHC.value)}</span><span class="kpi-unit">/ ${fmtNum(data.planHC)}</span></div>
+      ${kpiChangeHtml(data.actHC.change, state.period)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-gauge"></i><span class="kpi-label">Productivity</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${data.productivity === null ? 'faint' : ''}">${fmtNum(data.productivity)}</span><span class="kpi-unit">cases/MH</span></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-alert-triangle"></i><span class="kpi-label">% GRB</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num" style="color:${grbColor};">${grb.pct !== null ? grb.pct + '%' : '—'}</span></div>
+      <div class="kpi-sub">${fmtNum(grb.total)} cases</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-chart-pie"></i>สัดส่วนช่องทางจำหน่าย</div>
+    <div style="display:flex;height:15px;border-radius:8px;overflow:hidden;margin-bottom:10px;">
+      <div style="width:${mtPct}%;background:var(--accent);"></div>
+      <div style="width:${ttPct}%;background:var(--accent-soft);"></div>
+      <div style="width:${exPct}%;background:var(--surface-alt);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11.5px;color:var(--text-mute);">
+      <span><span class="chart-legend-swatch" style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:2px;margin-right:5px;"></span>MT <span class="num">${fmtNum(ch.mt)}</span></span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:var(--accent-soft);border-radius:2px;margin-right:5px;"></span>TT <span class="num">${fmtNum(ch.tt)}</span></span>
+      <span><span style="display:inline-block;width:8px;height:8px;background:var(--surface-alt);border:0.5px solid var(--border-strong);border-radius:2px;margin-right:5px;"></span>Export <span class="num">${fmtNum(ch.export)}</span></span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-coin"></i>ค่าใช้จ่ายแรงงาน — Outbound SO</div>
+    <div class="kpi-value-row" style="margin-bottom:4px;"><span class="kpi-value num" style="font-size:22px;">${fmtNum(data.laborCostTotal.value)}</span><span class="kpi-unit">บาท</span></div>
+    ${kpiChangeHtml(data.laborCostTotal.change, state.period)}
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-chart-area"></i>แนวโน้มยอดจ่ายตามช่องทาง</div>
+    <div class="chart-box h-160"><canvas id="soChannelChart"></canvas></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-users"></i>กำลังคน รายวัน (Act vs Plan)</div>
+    <div class="chart-box h-140"><canvas id="soHcChart"></canvas></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-alert-triangle"></i>แนวโน้ม GRB รายวัน</div>
+    <div class="chart-box h-110"><canvas id="soGrbChart"></canvas></div>
+  </div>
+
+  <div class="section-title"><i class="ti ti-package-export"></i>รายละเอียด GRB (สินค้าผิดพลาด)</div>
+  <div class="table-wrap">
+    <table>
+      <tr><th>ประเภท</th><th class="text-right">Cases</th></tr>
+      <tr><td>ขาดส่ง</td><td class="text-right num ${grb.short === 0 ? 'text-faint' : ''}">${fmtNum(grb.short)}</td></tr>
+      <tr><td>สลับ SKU</td><td class="text-right num ${grb.wrongSku === 0 ? 'text-faint' : ''}">${fmtNum(grb.wrongSku)}</td></tr>
+      <tr><td>ชำรุด</td><td class="text-right num ${grb.damaged === 0 ? 'text-faint' : ''}">${fmtNum(grb.damaged)}</td></tr>
+      <tr><td>ภัยธรรมชาติ</td><td class="text-right num ${grb.nature === 0 ? 'text-faint' : ''}">${fmtNum(grb.nature)}</td></tr>
+      <tr style="font-weight:600;"><td>Total GRB</td><td class="text-right num">${fmtNum(grb.total)}</td></tr>
+    </table>
+  </div>`;
+}
+
+function mountSOCharts(data) {
+  if (data.error || !data.series) return;
+  const labels = data.series.map(d => shortThaiDate(d.date));
+  renderTrendChart('soChannelChart', labels, [
+    lineDataset('MT', data.series.map(d => d.actMT), '#C2603F', { fill: true }),
+    lineDataset('TT', data.series.map(d => d.actTT), '#D8AE8E', { fill: true }),
+    lineDataset('Export', data.series.map(d => d.actExport), '#8A7A66', { fill: true })
+  ]);
+  renderTrendChart('soHcChart', labels, [
+    barDataset('Plan HC', data.series.map(d => d.planHC), '#EFE3D3'),
+    barDataset('Act HC', data.series.map(d => d.actHC), '#C2603F')
+  ], { type: 'bar' });
+  renderTrendChart('soGrbChart', labels, [
+    barDataset('GRB cases', data.series.map(d => d.grbTotal), '#A32D2D')
+  ], { type: 'bar' });
+}
+
+/* ============== VIEW: Stock ============== */
+function renderStockSkeleton() {
+  return `
+  <div class="period-row"><div class="period-label" style="font-size:13px;"><i class="ti ti-calendar" style="font-size:14px;"></i><span class="skel skel-text" style="width:100px;display:inline-block;"></span></div></div>
+  ${skeletonKpis(3)}
+  <div class="card" style="margin-top:9px;"><div class="skel skel-text" style="width:40%;margin-bottom:10px;"></div><div class="skel" style="height:180px;"></div></div>`;
+}
+
+function monthOnlyDateNavHtml(label) {
+  const isCurrentMonth = state.date.slice(0, 7) === todayStr().slice(0, 7);
+  return `
+  <div class="period-row">
+    <div class="date-nav">
+      <button class="date-nav-btn" id="datePrevBtn" aria-label="เดือนก่อน"><i class="ti ti-chevron-left"></i></button>
+      <label class="date-nav-label">
+        <i class="ti ti-calendar"></i>${label || ''}
+        <input type="date" class="date-nav-hidden-input" id="datePickerInput" value="${state.date}" max="${todayStr()}" min="2026-01-01">
+      </label>
+      <button class="date-nav-btn" id="dateNextBtn" aria-label="เดือนถัดไป" ${isCurrentMonth ? 'disabled' : ''}><i class="ti ti-chevron-right"></i></button>
+    </div>
+    ${!isCurrentMonth ? `<button class="today-btn" id="todayBtn"><i class="ti ti-calendar-event"></i>เดือนนี้</button>` : ''}
+  </div>`;
+}
+
+function renderStock(data) {
+  if (data.error) return errorBlock(data.error);
+  const util = data.latestUtilizationPct;
+  const bin = data.binUsage;
+  const binPct = (bin && bin.totalBin) ? Math.round((bin.activeBin / bin.totalBin) * 1000) / 10 : null;
+
+  return `
+  ${monthOnlyDateNavHtml(data.label)}
+  ${dataGapBanner(data.dataCompleteness)}
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-package"></i><span class="kpi-label">Utilization ล่าสุด</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${util.value === null ? 'faint' : ''}">${util.value !== null ? util.value + '%' : '—'}</span></div>
+      ${kpiChangeHtml(util.change, 'monthly')}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-chart-bar"></i><span class="kpi-label">เฉลี่ยทั้งเดือน</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num ${data.avgUtilizationPct === null ? 'faint' : ''}">${data.avgUtilizationPct !== null ? data.avgUtilizationPct + '%' : '—'}</span></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon-row"><i class="ti ti-alert-triangle"></i><span class="kpi-label">วันที่แน่นสุด</span></div>
+      <div class="kpi-value-row"><span class="kpi-value num" style="font-size:16px;">${data.peakDay ? data.peakDay.utilizationPct + '%' : '—'}</span></div>
+      <div class="kpi-sub">${data.peakDay ? fmtThaiDate(data.peakDay.date) : 'ไม่มีข้อมูล'}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-grid-dots"></i>Stock utilization รายวัน — ${data.label}</div>
+    <div class="chart-box h-160"><canvas id="stockTrendChart"></canvas></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><i class="ti ti-calendar" style="font-size:14px;"></i>Heatmap ความหนาแน่นรายวัน</div>
+    ${calendarHeatmap(data.heatmap)}
+  </div>
+
+  <div class="card">
+    <p style="font-size:12px;color:var(--text-mute);margin-bottom:8px;">การใช้งาน Bin location</p>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="flex:1;">
+        <div class="hc-bar-track" style="height:10px;">
+          <div class="hc-bar-fill" style="width:${binPct || 0}%;"></div>
+        </div>
+      </div>
+      <span class="num" style="font-size:13px;font-weight:500;">${bin ? fmtNum(bin.activeBin) : '—'} <span style="color:var(--text-mute);font-weight:400;">/ ${bin ? fmtNum(bin.totalBin) : '—'}</span></span>
+    </div>
+  </div>`;
+}
+
+function mountStockCharts(data) {
+  if (data.error || !data.series) return;
+  const labels = data.series.map(d => shortThaiDate(d.date));
+  const stockData = data.series.map(d => d.stockCases);
+  const capData = data.series.map(d => d.maxCap);
+  renderTrendChart('stockTrendChart', labels, [
+    lineDataset('คงเหลือ (cases)', stockData, '#C2603F', { fill: true }),
+    lineDataset('ความจุสูงสุด', capData, '#B5A893', { dashed: true, points: false })
+  ]);
+}
+
+/* ============== Render dispatch ============== */
+const VIEW_RENDERERS = {
+  overview: { render: renderOverview, skeleton: renderOverviewSkeleton, mountCharts: mountOverviewCharts },
+  inbound: { render: renderInbound, skeleton: renderInboundSkeleton, mountCharts: mountInboundCharts },
+  sto: { render: renderSTO, skeleton: renderSTOSkeleton, mountCharts: mountSTOCharts },
+  so: { render: renderSO, skeleton: renderSOSkeleton, mountCharts: mountSOCharts },
+  stock: { render: renderStock, skeleton: renderStockSkeleton, mountCharts: mountStockCharts }
+};
+
+const mainEl = document.getElementById('mainContent');
+
+function paintSkeleton() {
+  const r = VIEW_RENDERERS[state.view];
+  mainEl.innerHTML = `<div class="view active">${r.skeleton()}</div>`;
+}
+
+function paintView(data) {
+  const r = VIEW_RENDERERS[state.view];
+  mainEl.innerHTML = `<div class="view active">${r.render(data)}</div>`;
+  bindPeriodButtons();
+  if (r.mountCharts) r.mountCharts(data);
+}
+
+function bindPeriodButtons() {
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const newPeriod = btn.dataset.period;
+      if (newPeriod === state.period) return;
+      state.period = newPeriod;
+      loadAndRender({ skeleton: true });
+    });
+  });
+
+  const prevBtn = document.getElementById('datePrevBtn');
+  const nextBtn = document.getElementById('dateNextBtn');
+  const pickerInput = document.getElementById('datePickerInput');
+  const todayBtn = document.getElementById('todayBtn');
+
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    state.date = shiftDate(state.date, state.period, -1);
+    loadAndRender({ skeleton: true });
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    state.date = shiftDate(state.date, state.period, 1);
+    loadAndRender({ skeleton: true });
+  });
+  if (pickerInput) pickerInput.addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    state.date = e.target.value;
+    loadAndRender({ skeleton: true });
+  });
+  if (todayBtn) todayBtn.addEventListener('click', () => {
+    state.date = todayStr();
+    loadAndRender({ skeleton: true });
+  });
+}
+
+async function loadAndRender(opts) {
+  opts = opts || {};
+  const key = cacheKey(state.view, state.period, state.date);
+
+  if (opts.skeleton) paintSkeleton();
+
+  const action = ACTION_MAP[state.view];
+  const data = await fetchData(action, state.period, state.date);
+  state.cache[key] = data;
+  state._lastFetchedAt = Date.now();
+
+  if (cacheKey(state.view, state.period, state.date) === key) {
+    paintView(data);
+  }
+  setRefreshStatus();
+}
+
+function setRefreshStatus() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: CONFIG.TIMEZONE });
+  const isToday = state.date === todayStr();
+  const dot = document.querySelector('#refreshStatus .dot');
+  if (dot) dot.classList.toggle('historical', !isToday);
+  document.getElementById('refreshTime').textContent = isToday ? timeStr : 'ดูข้อมูลย้อนหลัง';
+  document.getElementById('refreshStatus').style.display = 'block';
+}
+
+function showToast(text, icon) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastText').textContent = text;
+  toast.querySelector('i').className = 'ti ' + (icon || 'ti-check');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+/* ============== LINE summary builder ============== */
+function periodNounThai(period) {
+  if (period === 'daily') return 'รายวัน';
+  if (period === 'weekly') return 'รายสัปดาห์';
+  return 'รายเดือน';
+}
+
+// "เพิ่มขึ้น 5.2% จากเดือนก่อน" / "ลดลง 3.1% จากเมื่อวาน" / "" if no baseline
+function changePhraseThai(change, period) {
+  if (change === null || change === undefined) return '';
+  const compareTo = period === 'daily' ? 'จากเมื่อวาน' : period === 'weekly' ? 'จากสัปดาห์ก่อน' : 'จากเดือนก่อน';
+  if (change > 0.05) return ` เพิ่มขึ้น ${change.toFixed(1)}% ${compareTo}`;
+  if (change < -0.05) return ` ลดลง ${Math.abs(change).toFixed(1)}% ${compareTo}`;
+  return ` เท่าเดิม ${compareTo}`;
+}
+
+function summaryHeader(titleThai, period, label) {
+  const dateLine = periodDateLabel(period, label);
+  return `📋 สรุป DC7171 ลำพูน — ${titleThai} (${periodNounThai(period)})\n📅 ${dateLine}\n\n`;
+}
+
+function summaryFooter() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: CONFIG.TIMEZONE });
+  const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: CONFIG.TIMEZONE });
+  return `\nอัปเดต ${dateStr} ${timeStr} น.`;
+}
+
+function fmtNumOrWaiting(v) {
+  return (v === null || v === undefined) ? 'รอข้อมูล' : fmtNum(v);
+}
+
+function buildOverviewSummary(data, period) {
+  let s = summaryHeader('ภาพรวม', period, data.label);
+  s += `📦 Inbound: ${fmtNumOrWaiting(data.inboundTotal.value)} cases${changePhraseThai(data.inboundTotal.change, period)}\n`;
+  s += `🔄 Outbound STO: ${fmtNumOrWaiting(data.stoTotal.value)} cases${changePhraseThai(data.stoTotal.change, period)}\n`;
+  s += `🚚 Outbound SO: ${fmtNumOrWaiting(data.soTotal.value)} cases${changePhraseThai(data.soTotal.change, period)}\n\n`;
+  s += `💰 ค่าแรงรวม: ${fmtNum(data.laborCostGrandTotal)} บาท\n`;
+  if (data.stock && data.stock.utilizationPct !== null) {
+    s += `📊 Stock utilization: ${data.stock.utilizationPct}% (${fmtNum(data.stock.stockCases)} / ${fmtNum(data.stock.maxCap)} cases)\n`;
+  } else {
+    s += `📊 Stock utilization: รอข้อมูล\n`;
+  }
+  s += `⚠️ GRB: ${data.grbPct !== null ? data.grbPct + '%' : 'รอข้อมูล'}\n`;
+  if (data.headcount) {
+    const hc = data.headcount;
+    s += `\n👥 กำลังคน: ${fmtNum(hc.actTotal)} / ${fmtNum(hc.planTotal)} คน\n`;
+    s += `   Inbound ${fmtNumOrWaiting(hc.byDept.inbound.act)}/${fmtNum(hc.byDept.inbound.plan)}, STO ${fmtNumOrWaiting(hc.byDept.sto.act)}/${fmtNum(hc.byDept.sto.plan)}, SO ${fmtNumOrWaiting(hc.byDept.so.act)}/${fmtNum(hc.byDept.so.plan)}\n`;
+  }
+  return s + summaryFooter();
+}
+
+function buildInboundSummary(data, period) {
+  let s = summaryHeader('Inbound', period, data.label);
+  s += `📦 Act. รับเข้ารวม: ${fmtNumOrWaiting(data.actTotalReceive.value)} cases${changePhraseThai(data.actTotalReceive.change, period)}\n`;
+  s += `   (Plan ${fmtNum(data.planReceive)} cases)\n\n`;
+  s += `👥 กำลังคน: ${fmtNumOrWaiting(data.actHC.value)} / ${fmtNum(data.planHC)} คน${changePhraseThai(data.actHC.change, period)}\n`;
+  if (data.productivity !== null) s += `⚙️ Productivity: ${fmtNum(data.productivity)} cases/MH\n`;
+  s += `\n💰 ค่าแรงรวม: ${fmtNum(data.laborCostTotal.value)} บาท${changePhraseThai(data.laborCostTotal.change, period)}\n`;
+  const b = data.breakdown;
+  s += `\n🚚 แยกตามต้นทาง:\n`;
+  s += `   โรงงาน 7151: ${fmtNumOrWaiting(b.from7151)} cases\n`;
+  s += `   DC 7174/76/77/78: ${fmtNumOrWaiting((b.from7174||0)+(b.from7176||0)+(b.from7177||0)+(b.from7178||0))} cases\n`;
+  return s + summaryFooter();
+}
+
+function buildSTOSummary(data, period) {
+  let s = summaryHeader('Outbound STO', period, data.label);
+  s += `🔄 Act. STO: ${fmtNumOrWaiting(data.actSTO.value)} cases${changePhraseThai(data.actSTO.change, period)}\n`;
+  s += `   (Plan ${fmtNum(data.planSTO)} cases)\n`;
+  s += `🚛 รถ: ${fmtNumOrWaiting(data.actTruck.value)} / ${fmtNum(data.planTruck)} คัน\n\n`;
+  s += `👥 กำลังคน: ${fmtNumOrWaiting(data.actHC.value)} / ${fmtNum(data.planHC)} คน\n`;
+  s += `\n💰 ค่าแรงรวม: ${fmtNum(data.laborCostTotal.value)} บาท${changePhraseThai(data.laborCostTotal.change, period)}\n`;
+  s += `\n📍 รวม Dispatch: ${fmtNumOrWaiting(data.dispatch.total.value)} cases\n`;
+  return s + summaryFooter();
+}
+
+function buildSOSummary(data, period) {
+  let s = summaryHeader('Outbound SO', period, data.label);
+  s += `🚚 Total SO: ${fmtNumOrWaiting(data.totalSO.value)} cases${changePhraseThai(data.totalSO.change, period)}\n`;
+  s += `   (Plan ${fmtNum(data.planSO)} cases)\n\n`;
+  const ch = data.channelBreakdown;
+  s += `📊 ช่องทาง — MT: ${fmtNumOrWaiting(ch.mt)} / TT: ${fmtNumOrWaiting(ch.tt)} / Export: ${fmtNumOrWaiting(ch.export)}\n\n`;
+  s += `👥 กำลังคน: ${fmtNumOrWaiting(data.actHC.value)} / ${fmtNum(data.planHC)} คน\n`;
+  if (data.productivity !== null) s += `⚙️ Productivity: ${fmtNum(data.productivity)} cases/MH\n`;
+  s += `\n💰 ค่าแรงรวม: ${fmtNum(data.laborCostTotal.value)} บาท${changePhraseThai(data.laborCostTotal.change, period)}\n`;
+  s += `\n⚠️ Total GRB: ${fmtNumOrWaiting(data.grb.total)} cases (${data.grb.pct !== null ? data.grb.pct + '%' : 'รอข้อมูล'})\n`;
+  return s + summaryFooter();
+}
+
+function buildStockSummary(data) {
+  let s = summaryHeader('Stock', 'monthly', data.label);
+  const util = data.latestUtilizationPct;
+  s += `📦 Utilization ล่าสุด: ${util.value !== null ? util.value + '%' : 'รอข้อมูล'}${changePhraseThai(util.change, 'monthly')}\n`;
+  s += `📊 เฉลี่ยทั้งเดือน: ${data.avgUtilizationPct !== null ? data.avgUtilizationPct + '%' : 'รอข้อมูล'}\n`;
+  if (data.peakDay) s += `🔺 วันที่แน่นสุด: ${data.peakDay.utilizationPct}% (${fmtThaiDate(data.peakDay.date)})\n`;
+  s += `\n📦 คงเหลือ: ${fmtNumOrWaiting(data.latestStockCases)} / ${fmtNumOrWaiting(data.latestMaxCap)} cases\n`;
+  if (data.binUsage) s += `📍 Bin location: ${fmtNum(data.binUsage.activeBin)} / ${fmtNum(data.binUsage.totalBin)}\n`;
+  return s + summaryFooter();
+}
+
+const SUMMARY_BUILDERS = {
+  overview: buildOverviewSummary,
+  inbound: buildInboundSummary,
+  sto: buildSTOSummary,
+  so: buildSOSummary,
+  stock: (data) => buildStockSummary(data)
+};
+
+function getCurrentSummaryText() {
+  const key = cacheKey(state.view, state.period, state.date);
+  const data = state.cache[key];
+  if (!data || data.error) return null;
+  const builder = SUMMARY_BUILDERS[state.view];
+  return builder(data, state.period);
+}
+
+function openSummaryModal() {
+  const text = getCurrentSummaryText();
+  const modal = document.getElementById('summaryModal');
+  const preview = document.getElementById('summaryPreviewText');
+  if (!text) {
+    preview.textContent = 'ยังไม่มีข้อมูลให้สรุป ลองรีเฟรชแล้วเปิดใหม่อีกครั้ง';
+  } else {
+    preview.textContent = text;
+  }
+  const copyBtn = document.getElementById('summaryCopyBtn');
+  copyBtn.classList.remove('copied');
+  copyBtn.innerHTML = '<i class="ti ti-copy" style="font-size:15px;"></i>คัดลอก';
+  modal.classList.add('show');
+}
+
+function closeSummaryModal() {
+  document.getElementById('summaryModal').classList.remove('show');
+}
+
+async function copySummaryToClipboard() {
+  const text = getCurrentSummaryText();
+  if (!text) return;
+  const copyBtn = document.getElementById('summaryCopyBtn');
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback for older browsers / non-secure contexts without Clipboard API
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    copyBtn.classList.add('copied');
+    copyBtn.innerHTML = '<i class="ti ti-check" style="font-size:15px;"></i>คัดลอกแล้ว';
+    showToast('คัดลอกข้อความแล้ว', 'ti-check');
+    setTimeout(() => closeSummaryModal(), 900);
+  } catch (err) {
+    showToast('คัดลอกไม่สำเร็จ ลองอีกครั้ง', 'ti-alert-circle');
+  }
+}
+
+document.getElementById('shareBtn').addEventListener('click', openSummaryModal);
+document.getElementById('summaryModalClose').addEventListener('click', closeSummaryModal);
+document.getElementById('summaryCancelBtn').addEventListener('click', closeSummaryModal);
+document.getElementById('summaryCopyBtn').addEventListener('click', copySummaryToClipboard);
+document.getElementById('summaryModal').addEventListener('click', (e) => {
+  if (e.target.id === 'summaryModal') closeSummaryModal();
+});
+
+/* ============== Tab switching ============== */
+// Switching tabs keeps the currently selected date/period — only the view changes.
+document.getElementById('tabNav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const view = btn.dataset.view;
+  if (view === state.view) return;
+
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+
+  state.view = view;
+  if (view === 'stock') state.period = 'monthly'; // Stock tab is month-only — no daily/weekly view exists for it
+  loadAndRender({ skeleton: true });
+});
+
+/* ============== Manual refresh ============== */
+// Refreshes whatever date/period is currently being viewed — does not jump back to today.
+document.getElementById('refreshBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('refreshBtn');
+  if (state.loading) return;
+  state.loading = true;
+  btn.classList.add('spinning');
+  await loadAndRender({ skeleton: false });
+  btn.classList.remove('spinning');
+  state.loading = false;
+  showToast('อัปเดตข้อมูลล่าสุดแล้ว', 'ti-check');
+});
+
+/* ============== Auto-refresh ============== */
+// Re-fetches the currently viewed date/period on a timer — never forces the
+// view back to "today" if the person is looking at historical data.
+setInterval(() => {
+  if (document.hidden) return;
+  loadAndRender({ skeleton: false });
+}, CONFIG.AUTO_REFRESH_MS);
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    const lastFetchedAt = state._lastFetchedAt || 0;
+    if (Date.now() - lastFetchedAt > CONFIG.AUTO_REFRESH_MS) {
+      loadAndRender({ skeleton: false });
+    }
+  }
+});
+
+/* ============== Init ============== */
+loadAndRender({ skeleton: true });
+</script>
+</body>
+</html>
